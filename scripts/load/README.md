@@ -1,32 +1,17 @@
-# 부하 테스트
+# 부하 / 검증 스크립트
 
-```
-scripts/load/
-├── reset.sh / create_coupon.sh   # 공유 헬퍼
-├── part-2/                       # 동시성/정확성
-│   ├── over_issuance.js          # 5000 req/s 30s, 재고 race
-│   ├── run.sh                    # reset/create/k6/verify 통합 러너
-│   └── verify.sh                 # issued_quantity vs issuance_rows
-├── part-3/                       # 큐 디커플링
-│   ├── issue_burst.js            # 5000 req/s 30s, P99 측정
-│   ├── verify_burst.sh           # Worker 드레인 후 결과
-│   ├── run.sh                    # 워밍업 + 본 측정 통합 러너
-│   ├── kafka_lag.sh              # (3-2c) Consumer lag
-│   └── kafka_dlt_peek.sh         # (3-2c) DLT 토픽 확인
-└── part-4/                       # 캐시 + 매진 상태
-    ├── coupon_burst.js           # 500 req/s 30s issue API 쿠폰 정보 조회
-    ├── create_issue_policy_coupon.sh # 시작 전 쿠폰 정보 실험용 쿠폰
-    ├── post_sellout_refresh.js   # 매진 후 4000 req/s 30s 발급 폭주
-    ├── create_small_coupon.sh    # 재고 100 쿠폰
-    ├── sell_out.sh               # 100명 발급으로 매진
-    └── run.sh                    # coupon | sellout | all
+part-2 ~ part-5 시나리오 실행 스크립트. 측정값 해석과 설계 배경은 각 단원 design 문서 참고.
+
+## 사전 준비
+
+```bash
+brew install k6 jq
+docker compose up -d
 ```
 
-사전 준비: `brew install k6 jq` + `docker compose up -d`.
+## 브랜치 전환 시
 
-### 브랜치 전환 시 (이미지 재생성)
-
-브랜치마다 서비스 코드가 다르므로, 전환 후에는 이미지를 새로 굽고 `coupon-service` 컨테이너만 교체한다. mysql/redis/kafka 는 그대로 둔다.
+브랜치마다 서비스 코드가 다르다. 전환하면 이미지를 새로 굽고 컨테이너만 교체한다 (mysql/redis/kafka 는 유지).
 
 ```bash
 git checkout <branch>
@@ -34,73 +19,33 @@ git checkout <branch>
 docker compose up -d --force-recreate coupon-service
 ```
 
-이걸 빼먹으면 이전 브랜치의 코드가 그대로 돌아 측정값이 헷갈린다. 재시작 후 `docker compose logs -f coupon-service` 로 `Started CouponServiceApplication` 한 줄 뜨는 것까지 확인하고 부하 시나리오를 돌리자.
+## 디렉토리
 
-## part-2
+```
+공유      reset.sh, create_coupon.sh
+part-2/   동시성: over_issuance.js, run.sh, verify.sh
+part-3/   큐 디커플링: issue_burst.js, verify_burst.sh, run.sh, kafka_lag.sh, kafka_dlt_peek.sh
+part-4/   캐시+매진 상태: coupon_burst.js, post_sellout_refresh.js, sell_out.sh, run.sh
+part-5/   보상+정합: force_dlt.sh, force_db_only.sh, drift_report.sh, run.sh, verify_compensation.sh, verify_reconcile.sh
+```
+
+## 실행
 
 ```bash
+# part-2 (동시성)
 ./scripts/load/part-2/run.sh
+
+# part-3 (큐 디커플링): reset, create, k6, verify 통합 러너
+./scripts/load/part-3/run.sh
+scripts/load/part-3/kafka_dlt_peek.sh   # DLT 확인 (3-2c)
+
+# part-4 (캐시 + 매진 상태)
+./scripts/load/part-4/run.sh            # coupon | sellout | all
+
+# part-5 (보상 + 정합): 부하보다 "주입 + 검증"
+./scripts/load/part-5/run.sh                  # 5-0 주입 후 drift 잔존 (베이스라인)
+./scripts/load/part-5/verify_compensation.sh  # 5-1 DLT 보상 + 멱등성
+./scripts/load/part-5/verify_reconcile.sh     # 5-2 자동 보정 + 알람
 ```
 
-`over_issuance=FAIL` 은 재고 race, `count_match=FAIL` 은 카운터 lost update. 자세한 해석은 [2단원 design](../../../../materials/domain/02-coupon-concurrency-design.md).
-
-## part-3
-
-```bash
-./scripts/load/part-3/run.sh           # 워밍업 1회 + 본 측정 1회 (기본)
-./scripts/load/part-3/run.sh --once    # 한 회차만
-```
-
-`run.sh` 는 `reset → create_coupon → k6 → verify_burst` 를 한 번에 묶고, 기본으로 두 회차를 도는 워밍업 절차까지 자동화한다. 서비스 프로세스는 띄운 채로 두고, 회차 사이에 `reset.sh` 로 DB/Redis 만 비우므로 JVM JIT, HikariCP 풀, Lettuce/Kafka 컨슈머 상태는 살아남아 2회차가 steady-state 값이 된다. 3-1 (동기) 만 예외로 두 회차가 비슷한데, 병목이 JIT/풀이 아니라 DB INSERT 자체라 워밍업이 의미 없기 때문이다.
-
-### 측정 결과 (5000 req/s × 30s, M-series Mac + Docker Desktop, 로깅 INFO 기준)
-
-> 발급 5000, 2xx 5000, 409 ~145k 는 4개 브랜치 모두 동일. 측정은 매 브랜치마다 `git checkout` + `./gradlew jibDockerBuild` + `docker compose up -d --force-recreate coupon-service` 후 `run.sh` 한 번 실행.
-
-| 브랜치                       | P99 (워밍업) | P99 (steady) | dropped (steady) | count_match | 비고                                  |
-| -------------------------- | --------- | ------------ | ---------------- | ----------- | ----------------------------------- |
-| `part-3-1-load-test`       | 5.22s     | 4.27s        | 21,931           | OK          | 응답이 DB INSERT 끝날 때까지 매달림 (임계 ❌)        |
-| `part-3-2a-inmemory-queue` | 368ms     | **3.92ms**   | ~0               | OK          | LinkedBlockingQueue 한 단계로 1000배 ↓     |
-| `part-3-2b-event-listener` | 358ms     | **4.65ms**   | ~0               | OK          | 2a 와 본질 동일, 어노테이션만 다름                |
-| `part-3-2c-kafka`          | 454ms     | **5.04ms**   | ~0               | OK          | 워밍업이 가장 큼 (Kafka 컨슈머 그룹 조인 + 메타 페치)  |
-
-3-2a/b/c 는 steady 에서 모두 임계 (500ms) 통과. 워밍업은 백엔드가 빠를수록 첫 30초의 일회성 비용 (JIT, 풀, 컨슈머 조인) 이 응답에 두드러진다.
-
-dropped_iterations 도 같이 봐야 디커플링 효과가 입체적이다. 3-1 은 백엔드가 느려서 k6 VU 풀 5000 이 가득 차고 21k+ 요청이 발사조차 못 한다. 3-2a/b/c 는 백엔드가 빨라 VU 가 다음 iteration 으로 즉시 넘어가 dropped 가 0 에 수렴.
-
-`count_match` (= `coupon.issued_quantity == COUNT(*) FROM issuance`) 도 모두 OK. Worker 가 한 트랜잭션 안에서 `INSERT issuance` 와 `UPDATE coupon SET issued_quantity = issued_quantity + 1` 을 같이 처리하기 때문 (`UPDATE ... +1` 은 SQL 단에서 원자적이라 동시 갱신끼리 lost update 가 없다).
-
-### Kafka 관측 (part-3-2c)
-
-```bash
-watch -n 1 scripts/load/part-3/kafka_lag.sh   # Consumer lag 추이
-scripts/load/part-3/kafka_dlt_peek.sh         # DLT 격리 확인
-```
-
-### JVM kill 시 손실 측정 (별도 절차)
-
-부하 중 다른 셸에서 `docker compose kill -s KILL coupon-service && docker compose up -d coupon-service`. 손실량 = k6 의 2xx 응답 수 − `issuance_rows`.
-
-- 2a / 2b: 큐 안 메시지 통째 손실 (양수)
-- 2c: Kafka 가 미커밋 offset 부터 재처리 → 손실 0
-
-## part-4
-
-```bash
-./scripts/load/part-4/run.sh           # 두 시나리오 모두 (워밍업 + 본 측정)
-./scripts/load/part-4/run.sh policy    # ① issue API 쿠폰 정보 조회 요청 급증만 (500 req/s × 30s)
-./scripts/load/part-4/run.sh sellout   # ② 매진 후 새로고침만 (4000 req/s × 30s)
-./scripts/load/part-4/run.sh --once policy   # 워밍업 생략
-```
-
-`run.sh` 는 시나리오 직전 `/metrics/cache/reset` 으로 카운터를 0 으로 맞추고, 시나리오 끝나면 `/metrics/cache` (GET) 로 단계별 결과 카운터를 출력한다. k6 의 latency 분포와 함께 보면 캐시 단계별 효과가 한눈에 비교된다.
-
-| 단계                        | 측정 핵심                                          |
-| ------------------------- | ---------------------------------------------- |
-| `part-4-0-load-test`      | 쿠폰 정보 DB 도달 15,001 / 쿠폰 정보 캐시 hit 0 |
-| `part-4-1a-cache-naive`   | 쿠폰 정보 DB 도달 1,349 / 쿠폰 정보 캐시 hit 13,651, TTL stampede 관찰 |
-| `part-4-1b-single-flight` | 쿠폰 정보 DB 도달 28 / 쿠폰 정보 캐시 hit 14,973 |
-| `part-4-1c-swr`           | 쿠폰 정보 DB 도달 50 / 쿠폰 정보 캐시 hit 15,000, 갱신은 백그라운드 |
-| `part-4-2-sold-out-signal` | soldOutFastPathHits 120,001 / Redis EXISTS 30 |
-
-자세한 시나리오 정의와 결과 해석은 [4단원 design](../../../../materials/domain/04-coupon-cache-and-signal-design.md) 7.2 결과 표.
+part-5 는 두 등식 `total = 발급누적 + Redis재고 = Redis사용자 + Redis재고` 의 잔차로 불일치를 잰다. `force_dlt` 는 DB 측(알람 대상), `force_db_only` 는 목록 측(자동 보정 대상)을 깬다.
