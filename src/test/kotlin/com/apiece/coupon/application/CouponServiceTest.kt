@@ -25,6 +25,7 @@ class CouponServiceTest {
     private val couponIssuePolicyReader = mockk<CouponIssuePolicyReader>()
     private val couponIssuer = mockk<CouponIssuer>(relaxUnitFun = true)
     private val producer = mockk<IssuanceRequestProducer>(relaxUnitFun = true)
+    // 기본은 매진 아님. 매진 fast-path 분기는 별도 테스트에서 stub.
     private val soldOutState = mockk<SoldOutState>(relaxed = true)
     private val service = CouponService(couponRepository, couponIssuePolicyReader, couponIssuer, producer, soldOutState)
 
@@ -75,6 +76,16 @@ class CouponServiceTest {
         every { couponIssuer.tryIssue(1L, 42L) } throws SoldOutException()
 
         assertFailsWith<SoldOutException> { service.issue(1L, 42L) }
+        verify(exactly = 0) { producer.publish(any()) }
+    }
+
+    @Test
+    fun `매진 fast-path 면 DB 조회 없이 SoldOutException`() {
+        every { soldOutState.isSoldOut(1L) } returns true
+
+        assertFailsWith<SoldOutException> { service.issue(1L, 42L) }
+        verify(exactly = 0) { couponIssuePolicyReader.get(any()) }
+        verify(exactly = 0) { couponRepository.findById(any()) }
         verify(exactly = 0) { producer.publish(any()) }
     }
 
