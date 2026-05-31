@@ -38,6 +38,11 @@ coupon:
   compensation:
     # Redis 멱등 키(compensation:{id}) TTL. DLT 재투입/재시도 안전 창. 기본 7일.
     idempotency-ttl-seconds: ${COUPON_COMPENSATION_IDEMPOTENCY_TTL_SECONDS:604800}
+  reconcile:
+    # 정합성 점검 배치 주기. 매 분 1회.
+    interval-ms: ${COUPON_RECONCILE_INTERVAL_MS:60000}
+    # false alarm 거르기용 재검사 지연. 1차 불일치 후 이만큼 뒤 한 번 더 본다.
+    recheck-delay-ms: ${COUPON_RECONCILE_RECHECK_DELAY_MS:100}
 
 logging:
   level:
