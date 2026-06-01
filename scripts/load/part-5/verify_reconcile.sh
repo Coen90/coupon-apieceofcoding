@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# part-5-2 검증: reconcile 자동 보정(목록 휘발/매진 플래그) + DB 측 알람 (5단원 5, 7).
+# part-5-2 검증: reconcile 자동 보정(명단 휘발/매진 표시) + DB 측 알람 (5단원 5, 7).
 # 사전: docker compose 스택 + coupon-service(part-5-2 이미지) 가 떠 있어야 한다.
 
 set -euo pipefail
@@ -18,63 +18,62 @@ wait_service_ready() {
 }
 
 fail=0
-pass() { printf '\033[1;32mPASS\033[0m %s\n' "$1"; }
-ng()   { printf '\033[1;31mFAIL\033[0m %s\n' "$1"; fail=1; }
-check() { if [[ "$2" == "$3" ]]; then pass "$1 ($2)"; else ng "$1 (got $2, want $3)"; fi; }
+pass() { printf '\033[1;32m  ✓ 통과\033[0m %s\n' "$1"; }
+ng()   { printf '\033[1;31m  ✗ 실패\033[0m %s\n' "$1"; fail=1; }
+check() { if [[ "$2" == "$3" ]]; then pass "$1 ($2)"; else ng "$1 (실제 $2, 기대 $3)"; fi; }
 
-# 보상 처리기가 stray DLT 를 소비해 reconcile 검증을 흔들지 않도록, kafka 를 비우고 재기동.
+# 보상 처리기가 남은 실패 메시지를 소비해 reconcile 검증을 흔들지 않도록, kafka 를 비우고 재시작.
 ./scripts/load/part-5/reset_kafka.sh
 docker compose restart coupon-service >/dev/null
-wait_service_ready || { ng "coupon-service 재기동 대기 실패"; exit 1; }
+wait_service_ready || { ng "coupon-service 재기동을 기다리다 실패"; exit 1; }
 
 ############################################
-printf '\n\033[1;35m##### Phase A: Redis 사용자 목록 휘발 -> SADD 자동 보정 #####\033[0m\n'
+printf '\n\033[1;35m##### A단계: 발급자 명단이 날아간 경우 -> 점검 배치가 다시 채워주나 #####\033[0m\n'
 ./scripts/load/reset.sh >/dev/null
 reset_recon_metrics
 CID=$(./scripts/load/create_coupon.sh)
 COUPON_ID="$CID" COUNT="$COUNT" ./scripts/load/part-5/force_db_only.sh >/dev/null
-printf '주입 후 목록 측 잔차 확인:\n'; COUPON_ID="$CID" ./scripts/load/part-5/drift_report.sh
-run_reconcile | jq -c '.'; echo
+printf '주입 직후 상태:\n'; COUPON_ID="$CID" ./scripts/load/part-5/drift_report.sh
+printf '점검 배치 1회 실행 결과: '; run_reconcile | jq -c '.'
 users_after="$(redis_cli SCARD "coupon:$CID:users")"
-check "휘발된 사용자 목록 SADD 복구 (users=주입수)" "$users_after" "$COUNT"
-check "reconcile_auto_fix_total" "$(recon_metric reconcileAutoFixTotal)" "1"
-check "redis_db_drift (DB 측은 정합)" "$(recon_metric redisDbDrift)" "0"
+check "날아간 발급자 명단을 자동으로 되살림(명)" "$users_after" "$COUNT"
+check "자동으로 고친 횟수" "$(recon_metric reconcileAutoFixTotal)" "1"
+check "DB 쪽 어긋남(0이면 정상)" "$(recon_metric redisDbDrift)" "0"
 
 ############################################
-printf '\n\033[1;35m##### Phase B: DB 측 불일치 -> 알람만 (자동 보정 불가) #####\033[0m\n'
+printf '\n\033[1;35m##### B단계: DB 쪽이 어긋난 경우 -> 알람만, 함부로 자동으로 못 고침 #####\033[0m\n'
 ./scripts/load/reset.sh >/dev/null
 reset_recon_metrics
 CID2=$(./scripts/load/create_coupon.sh)
-# PRODUCE_DLT=0: DLT 메시지 없이 순수 DB 측 drift 만. 보상 처리기가 소비할 게 없어 격리된다.
+# PRODUCE_DLT=0: 실패 메시지는 안 만들고 Redis 만 어긋난 순수 DB 측 차이. 보상 처리기가 소비할 게 없어 격리된다.
 COUPON_ID="$CID2" COUNT="$COUNT" PRODUCE_DLT=0 ./scripts/load/part-5/force_dlt.sh >/dev/null
 issued_before="$(mysql_scalar "SELECT issued_quantity FROM coupon WHERE id=$CID2")"
 stock_before="$(redis_cli GET "coupon:$CID2:stock")"
-run_reconcile | jq -c '.'; echo
-check "redis_db_drift 알람" "$(recon_metric redisDbDrift)" "$COUNT"
-check "자동 보정 안 함 (auto_fix=0)" "$(recon_metric reconcileAutoFixTotal)" "0"
-check "DB issued_quantity 그대로" "$(mysql_scalar "SELECT issued_quantity FROM coupon WHERE id=$CID2")" "$issued_before"
-check "Redis stock 그대로" "$(redis_cli GET "coupon:$CID2:stock")" "$stock_before"
+printf '점검 배치 1회 실행 결과: '; run_reconcile | jq -c '.'
+check "DB 쪽 어긋남 감지(건)" "$(recon_metric redisDbDrift)" "$COUNT"
+check "자동으로 고치지 않음" "$(recon_metric reconcileAutoFixTotal)" "0"
+check "DB 발급 수 그대로 둠" "$(mysql_scalar "SELECT issued_quantity FROM coupon WHERE id=$CID2")" "$issued_before"
+check "Redis 재고 그대로 둠" "$(redis_cli GET "coupon:$CID2:stock")" "$stock_before"
 
 ############################################
-printf '\n\033[1;35m##### Phase C: 매진 플래그 잘못 살아남음 -> DEL 자동 보정 #####\033[0m\n'
+printf '\n\033[1;35m##### C단계: 재고는 남았는데 매진 표시가 잘못 켜진 경우 -> 자동으로 끄기 #####\033[0m\n'
 ./scripts/load/reset.sh >/dev/null
 reset_recon_metrics
 CID3=$(./scripts/load/create_coupon.sh)
-redis_cli SET "coupon:$CID3:sold_out" 1 >/dev/null   # 재고는 5000 인데 플래그만 살아있는 상태 주입
+redis_cli SET "coupon:$CID3:sold_out" 1 >/dev/null   # 재고는 5000 인데 매진 표시만 켜진 상태 주입
 sold_before="$(redis_cli EXISTS "coupon:$CID3:sold_out")"
-run_reconcile | jq -c '.'; echo
+printf '점검 배치 1회 실행 결과: '; run_reconcile | jq -c '.'
 sold_after="$(redis_cli EXISTS "coupon:$CID3:sold_out")"
-check "보정 전 매진 플래그 있음" "$sold_before" "1"
-check "보정 후 매진 플래그 해제" "$sold_after" "0"
-check "reconcile_auto_fix_total" "$(recon_metric reconcileAutoFixTotal)" "1"
+check "고치기 전: 매진 표시 있음" "$sold_before" "1"
+check "고친 후: 매진 표시 꺼짐" "$sold_after" "0"
+check "자동으로 고친 횟수" "$(recon_metric reconcileAutoFixTotal)" "1"
 
 ############################################
-neg="$(recon_metric stockNegative)"
-check "재고 음수 발생 (항상 0)" "$neg" "0"
-check "reconcile_false_alarm_total (이번 시나리오는 0)" "$(recon_metric reconcileFalseAlarmTotal)" "0"
+check "재고가 음수로 내려간 쿠폰 수(항상 0)" "$(recon_metric stockNegative)" "0"
+check "잘못된 경보 횟수(이번엔 0)" "$(recon_metric reconcileFalseAlarmTotal)" "0"
 
 if (( fail == 0 )); then
-  printf '\n\033[1;32m===== part-5-2 검증 전체 PASS =====\033[0m\n'
+  printf '\n\033[1;32m===== part-5-2 검증: 모두 통과 =====\033[0m\n'
 else
-  printf '\n\033[1;31m===== part-5-2 검증 실패 항목 있음 =====\033[0m\n'; exit 1
+  printf '\n\033[1;31m===== part-5-2 검증: 실패한 항목이 있습니다 =====\033[0m\n'; exit 1
 fi
