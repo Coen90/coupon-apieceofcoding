@@ -25,5 +25,5 @@ phase "상황 ① : 발급은 됐는데 DB 저장이 실패 (force_dlt)" force_d
 phase "상황 ② : DB 엔 발급됐는데 Redis 명단이 날아감 (force_db_only)" force_db_only.sh
 
 printf '\n\033[1;36m정리: 지금은 두 경우 모두 자동으로 고쳐지지 않고 그대로 남아 있어요 (part-5-0 베이스라인).\n'
-printf '  다음 단계에서 ① 은 part-5-1(보상)이 실패 보관함(DLT)을 읽어 되돌리고,\n'
+printf '  다음 단계에서 ① 은 part-5-1(보상)이 실패 메시지 보관함(DLT)을 읽어 자동으로 되돌리고,\n'
 printf '  ② 는 part-5-2(reconcile)가 DB 명단을 보고 Redis 에 자동으로 채워줍니다.\033[0m\n'
