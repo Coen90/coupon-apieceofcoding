@@ -9,7 +9,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/../../.."
 
-printf '\n\033[1;36m===== kafka 재생성 (토픽/오프셋 클린) =====\033[0m\n'
+printf '\n\033[1;36m===== kafka 초기화 (쌓여 있던 메시지와 읽은 위치를 모두 비움) =====\033[0m\n'
 docker compose up -d --force-recreate kafka >/dev/null 2>&1
 
 for _ in $(seq 1 40); do
@@ -17,4 +17,4 @@ for _ in $(seq 1 40); do
   [[ "$status" == *healthy* ]] && break
   sleep 1
 done
-printf '  kafka: %s\n' "$(docker compose ps kafka --format '{{.Status}}')"
+printf '  kafka 준비됨: %s\n' "$(docker compose ps kafka --format '{{.Status}}')"
