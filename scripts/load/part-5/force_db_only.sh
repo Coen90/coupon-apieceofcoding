@@ -16,8 +16,8 @@ cd "$(dirname "$0")/../../.."
 mysql_exec() { docker compose exec -T -e MYSQL_PWD=coupon mysql mysql -ucoupon -BN coupon -e "$1"; }
 redis_cli() { docker compose exec -T redis redis-cli "$@"; }
 
-printf '\n\033[1;36m===== force_db_only: Redis 사용자 목록 휘발 %s건 주입 (coupon %s) =====\033[0m\n' \
-  "$COUNT" "$COUPON_ID"
+printf '\n\033[1;36m===== [상황 만들기] DB 엔 발급됐는데 Redis 명단이 날아간 경우 %s건 (force_db_only) =====\033[0m\n' \
+  "$COUNT"
 
 # 1) DB 에 ISSUED 행 N개 INSERT (정상 발급이 DB 까지 도달한 것처럼).
 values=""
@@ -31,10 +31,10 @@ for i in $(seq 1 "$COUNT"); do
 done
 mysql_exec "INSERT INTO issuance (user_id, coupon_id, issued_at, expires_at, status) VALUES $values;
             UPDATE coupon SET issued_quantity = issued_quantity + $COUNT WHERE id = $COUPON_ID;"
-printf '  DB: issuance %s행 INSERT (user %s..%s) + issued_quantity +%s\n' \
-  "$COUNT" "$first" "$last" "$COUNT"
+printf '  DB: 발급 기록 %s건 추가 + 발급 수 %s 증가 (%s~%s번)\n' \
+  "$COUNT" "$COUNT" "$first" "$last"
 
 # 2) Redis stock 만 N 차감 (사용자 목록 SADD 는 일부러 생략 = 휘발 재현).
 redis_cli DECRBY "coupon:$COUPON_ID:stock" "$COUNT" >/dev/null
-printf '  Redis: stock -%s, users 는 그대로 (SADD 누락 = 휘발)\n' "$COUNT"
-printf '\033[1;32m  완료.\033[0m\n'
+printf '  Redis: 재고만 %s 줄이고 발급자 명단에는 안 넣음 (명단이 날아간 상황 재현)\n' "$COUNT"
+printf '\033[1;32m  완료: DB 엔 기록이 있는데 Redis 명단엔 없음 → 명단 쪽 숫자가 어긋납니다.\033[0m\n'

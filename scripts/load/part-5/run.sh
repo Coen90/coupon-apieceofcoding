@@ -16,13 +16,14 @@ phase() {
   ./scripts/load/reset.sh >/dev/null
   local coupon_id
   coupon_id=$(./scripts/load/create_coupon.sh)
-  printf '생성된 coupon_id = %s (total 5000)\n' "$coupon_id"
+  printf '쿠폰을 새로 만들었어요 (번호 %s, 총 5000장)\n' "$coupon_id"
   COUPON_ID="$coupon_id" COUNT="$COUNT" "./scripts/load/part-5/$injector"
   COUPON_ID="$coupon_id" ./scripts/load/part-5/drift_report.sh
 }
 
-phase "① Worker INSERT 영구 실패 (force_dlt) → DB 측 불일치 잔존" force_dlt.sh
-phase "② Redis 사용자 목록 휘발 (force_db_only) → 목록 측 불일치 잔존" force_db_only.sh
+phase "상황 ① : 발급은 됐는데 DB 저장이 실패 (force_dlt)" force_dlt.sh
+phase "상황 ② : DB 엔 발급됐는데 Redis 명단이 날아감 (force_db_only)" force_db_only.sh
 
-printf '\n\033[1;36m베이스라인: 두 불일치 모두 자동 복구 없이 그대로 남아 있다.\n'
-printf '  part-5-1(보상)이 ①의 DLT 를 소비해 되돌리고, part-5-2(reconcile)가 ②를 SADD 로 자동 보정한다.\033[0m\n'
+printf '\n\033[1;36m정리: 지금은 두 경우 모두 자동으로 고쳐지지 않고 그대로 남아 있어요 (part-5-0 베이스라인).\n'
+printf '  다음 단계에서 ① 은 part-5-1(보상)이 실패 보관함(DLT)을 읽어 되돌리고,\n'
+printf '  ② 는 part-5-2(reconcile)가 DB 명단을 보고 Redis 에 자동으로 채워줍니다.\033[0m\n'

@@ -19,15 +19,15 @@ redis_cli() { docker compose exec -T redis redis-cli "$@"; }
 issued_at="$(date -u +%Y-%m-%dT%H:%M:%S)"
 expires_at="$(date -u -v+7d +%Y-%m-%dT%H:%M:%S)"
 
-printf '\n\033[1;36m===== force_dlt: Worker INSERT 영구 실패 %s건 주입 (coupon %s) =====\033[0m\n' \
-  "$COUNT" "$COUPON_ID"
+printf '\n\033[1;36m===== [상황 만들기] 발급은 됐는데 DB 저장이 실패한 경우 %s건 (force_dlt) =====\033[0m\n' \
+  "$COUNT"
 
 # 1) Redis 는 발급 완료 상태로 (정상 발급이 끝난 직후처럼): 재고 N 차감 + 사용자 N 추가.
 user_ids=()
 for i in $(seq 1 "$COUNT"); do user_ids+=( $(( USER_BASE + i )) ); done
 redis_cli DECRBY "coupon:$COUPON_ID:stock" "$COUNT" >/dev/null
 redis_cli SADD "coupon:$COUPON_ID:users" "${user_ids[@]}" >/dev/null
-printf '  Redis: stock -%s, users +%s (%s..%s)\n' \
+printf '  Redis: 재고 %s 줄이고 발급자 명단에 %s명 추가 (%s~%s번)  ← 사용자에겐 발급 성공으로 보임\n' \
   "$COUNT" "$COUNT" "${user_ids[0]}" "${user_ids[-1]}"
 
 # 2) DB 행은 만들지 않고, DLT 로 메시지 N 건을 직접 producer 로 떨군다.
@@ -40,5 +40,5 @@ printf '  Redis: stock -%s, users +%s (%s..%s)\n' \
 } | docker compose exec -T kafka /opt/kafka/bin/kafka-console-producer.sh \
   --bootstrap-server localhost:9092 --topic "$TOPIC" >/dev/null
 
-printf '  Kafka: %s 메시지를 %s 로 produce\n' "$COUNT" "$TOPIC"
-printf '\033[1;32m  완료. (DB issuance 행은 0, Redis 는 발급 완료 상태)\033[0m\n'
+printf '  Kafka: DB 저장이 끝내 실패한 메시지 %s건을 DLT(실패 메시지 보관함)에 넣음\n' "$COUNT"
+printf '\033[1;32m  완료: DB 에는 발급 기록이 없고 Redis 만 발급된 상태 → DB 쪽 숫자가 어긋납니다.\033[0m\n'
