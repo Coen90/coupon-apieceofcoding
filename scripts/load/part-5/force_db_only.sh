@@ -29,6 +29,13 @@ for i in $(seq 1 "$COUNT"); do
   [[ -n "$values" ]] && values+=","
   values+="($uid, $COUPON_ID, NOW(), DATE_ADD(NOW(), INTERVAL 7 DAY), 'ISSUED')"
 done
+# 재실행 가드: 같은 범위가 이미 들어가 있으면 UNIQUE 위반 크래시 대신 안내 후 중단.
+# 오케스트레이터(run.sh)는 reset.sh 로 비운 뒤 부르므로 이 가드에 걸리지 않는다.
+if [[ "$(mysql_exec "SELECT COUNT(*) FROM issuance WHERE coupon_id = $COUPON_ID AND user_id BETWEEN $first AND $last")" != "0" ]]; then
+  printf '\033[1;33m  이미 주입된 쿠폰입니다. 먼저 ./scripts/load/reset.sh 로 초기화한 뒤 다시 실행하세요.\033[0m\n'
+  exit 1
+fi
+
 mysql_exec "INSERT INTO issuance (user_id, coupon_id, issued_at, expires_at, status) VALUES $values;
             UPDATE coupon SET issued_quantity = issued_quantity + $COUNT WHERE id = $COUPON_ID;"
 printf '  DB: 발급 기록 %s건 추가 + 발급 수 %s 증가 (%s~%s번)\n' \

@@ -15,6 +15,12 @@ redis_cli() {
   docker compose exec -T redis redis-cli "$@"
 }
 
+# 없는 쿠폰이면 빈 값이 산술에서 0 으로 처리돼 '정상'으로 오보고하므로, 먼저 존재를 확인한다.
+if [[ "$(mysql_scalar "SELECT COUNT(*) FROM coupon WHERE id = $COUPON_ID")" != "1" ]]; then
+  printf '쿠폰 %s 가 DB 에 없습니다. COUPON_ID 를 확인하세요.\n' "$COUPON_ID" >&2
+  exit 1
+fi
+
 total="$(mysql_scalar "SELECT total_quantity FROM coupon WHERE id = $COUPON_ID")"
 issued="$(mysql_scalar "SELECT issued_quantity FROM coupon WHERE id = $COUPON_ID")"
 issued_rows="$(mysql_scalar "SELECT COUNT(*) FROM issuance WHERE coupon_id = $COUPON_ID AND status = 'ISSUED'")"

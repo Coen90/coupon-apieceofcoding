@@ -25,10 +25,18 @@ printf '\n\033[1;36m===== [상황 만들기] 발급은 됐는데 DB 저장이 �
 # 1) Redis 는 발급 완료 상태로 (정상 발급이 끝난 직후처럼): 재고 N 차감 + 사용자 N 추가.
 user_ids=()
 for i in $(seq 1 "$COUNT"); do user_ids+=( $(( USER_BASE + i )) ); done
+
+# 재실행 가드: 같은 쿠폰에 이미 주입돼 있으면 (reset 없이 재실행) 재고가 또 깎이지 않게 중단.
+# 오케스트레이터(run.sh)는 reset.sh 로 비운 뒤 부르므로 이 가드에 걸리지 않는다.
+if [[ "$(redis_cli SISMEMBER "coupon:$COUPON_ID:users" "${user_ids[0]}")" == "1" ]]; then
+  printf '\033[1;33m  이미 주입된 쿠폰입니다. 먼저 ./scripts/load/reset.sh 로 초기화한 뒤 다시 실행하세요.\033[0m\n'
+  exit 1
+fi
+
 redis_cli DECRBY "coupon:$COUPON_ID:stock" "$COUNT" >/dev/null
 redis_cli SADD "coupon:$COUPON_ID:users" "${user_ids[@]}" >/dev/null
 printf '  Redis: 재고 %s 줄이고 발급자 명단에 %s명 추가 (%s~%s번)  ← 사용자에겐 발급 성공으로 보임\n' \
-  "$COUNT" "$COUNT" "${user_ids[0]}" "${user_ids[-1]}"
+  "$COUNT" "$COUNT" "${user_ids[0]}" "${user_ids[$((COUNT - 1))]}"
 
 # 2) DB 행은 만들지 않고, DLT 로 메시지 N 건을 직접 producer 로 떨군다.
 #    payload 는 IssuanceRequested 모양 그대로. 컨슈머가 default-type 으로 역직렬화한다.
