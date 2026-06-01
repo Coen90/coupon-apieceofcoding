@@ -22,9 +22,10 @@ pass() { printf '\033[1;32m  ✓ 통과\033[0m %s\n' "$1"; }
 ng()   { printf '\033[1;31m  ✗ 실패\033[0m %s\n' "$1"; fail=1; }
 check() { if [[ "$2" == "$3" ]]; then pass "$1 ($2)"; else ng "$1 (실제 $2, 기대 $3)"; fi; }
 
-# 보상 처리기가 남은 실패 메시지를 소비해 reconcile 검증을 흔들지 않도록, kafka 를 비우고 재시작.
+# 보상 처리기가 남은 실패 메시지를 소비해 reconcile 검증을 흔들지 않도록 kafka 를 비우고,
+# 검증 동안 매 분 스케줄 reconcile 이 수동 트리거와 겹치지 않게 주기를 크게(1시간) 올려 재기동한다.
 ./scripts/load/part-5/reset_kafka.sh
-docker compose restart coupon-service >/dev/null
+COUPON_RECONCILE_INTERVAL_MS=3600000 docker compose up -d --force-recreate coupon-service >/dev/null
 wait_service_ready || { ng "coupon-service 재기동을 기다리다 실패"; exit 1; }
 
 ############################################

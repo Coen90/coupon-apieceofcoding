@@ -8,6 +8,7 @@ import com.apiece.coupon.infrastructure.cache.SoldOutProperties
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.abs
 
 private val log = KotlinLogging.logger {}
@@ -18,11 +19,15 @@ private val log = KotlinLogging.logger {}
 class Reconciler(
     private val couponRepository: CouponRepository,
     private val issuanceRepository: IssuanceRepository,
-    private val redis: CouponReconcileRedisRepository,
+    private val reconcileRedisRepository: CouponReconcileRedisRepository,
     private val soldOutProperties: SoldOutProperties,
     private val reconcileProperties: ReconcileProperties,
     private val metrics: ReconcileMetrics,
 ) {
+
+    // 스케줄 스레드와 /admin/reconcile/run 의 HTTP 스레드가 동시에 돌면 게이지가 비결정적으로
+    // 덮어써진다. 인스턴스 안에서는 한 번에 하나만 돌도록 가드 (분산 환경은 ShedLock, 5단원 6.2).
+    private val running = AtomicBoolean(false)
 
     // 매 분 1회. 분산 환경에선 ShedLock 으로 한 인스턴스만 돈다 (5단원 6.2, 본편은 단일 인스턴스).
     @Scheduled(fixedRateString = "\${coupon.reconcile.interval-ms}")
@@ -31,39 +36,59 @@ class Reconciler(
     }
 
     fun reconcileAll(): ReconcileReport {
-        // "활성중 쿠폰": 본편은 단일 인스턴스 + 수십 건 가정이라 Redis stock 키가 살아있는
-        // 쿠폰 전체를 스캔한다. 대규모에선 마지막 활동 시각 필터/샤딩이 필요 (5단원 5.3).
-        val coupons = couponRepository.findAll().filter { it.id != null && redis.hasStock(it.id!!) }
+        if (!running.compareAndSet(false, true)) {
+            log.info { "reconcile 이 이미 실행 중이라 이번 호출은 건너뜀" }
+            return ReconcileReport(
+                checkedCoupons = 0, autoFixed = 0, driftAlerts = 0,
+                falseAlarms = 0, redisDbDrift = 0L, stockNegative = 0,
+            )
+        }
+        try {
+            // "활성중 쿠폰": 설계 5.3 은 starts_at <= now <= ends_at + grace 로 정의하지만 본편 Coupon
+            // 에는 ends_at 이 없어, Redis stock 키가 살아있는 쿠폰을 활성으로 근사한다 (단일 인스턴스 +
+            // 수십 건 가정). 그래서 stock 키 자체가 휘발한 쿠폰은 검사에서 빠지는 사각지대가 있고,
+            // 설계 5.4 의 진행중 warning / 종료 alert 임계 분리도 본편에선 생략했다. 대규모/시간기반은 7단원.
+            val coupons = couponRepository.findAll().filter { it.id != null && reconcileRedisRepository.hasStock(it.id!!) }
 
-        var autoFixed = 0
-        var driftAlerts = 0
-        var falseAlarms = 0
-        var dbDriftSum = 0L
-        var stockNegative = 0
+            var autoFixed = 0
+            var driftAlerts = 0
+            var falseAlarms = 0
+            var dbDriftSum = 0L
+            var stockNegative = 0
 
-        for (coupon in coupons) {
-            val outcome = try {
-                reconcileCoupon(coupon.id!!)
-            } catch (e: Exception) {
-                log.warn(e) { "reconcile 중 예외 coupon=${coupon.id}, skip" }
-                CouponOutcome()
+            for (coupon in coupons) {
+                val outcome = try {
+                    reconcileCoupon(coupon.id!!)
+                } catch (e: Exception) {
+                    log.warn(e) { "reconcile 중 예외 coupon=${coupon.id}, skip" }
+                    CouponOutcome()
+                }
+                autoFixed += outcome.autoFixed
+                if (outcome.driftAlert) driftAlerts++
+                if (outcome.falseAlarm) falseAlarms++
+                dbDriftSum += outcome.confirmedDbDrift
+                if (outcome.stockNegative) stockNegative++
             }
-            autoFixed += outcome.autoFixed
-            if (outcome.driftAlert) driftAlerts++
-            if (outcome.falseAlarm) falseAlarms++
-            dbDriftSum += outcome.confirmedDbDrift
-            if (outcome.stockNegative) stockNegative++
-        }
 
-        metrics.setRedisDbDrift(dbDriftSum)
-        metrics.setStockNegative(stockNegative.toLong())
+            metrics.setRedisDbDrift(dbDriftSum)
+            metrics.setStockNegative(stockNegative.toLong())
 
-        val report = ReconcileReport(coupons.size, autoFixed, driftAlerts, falseAlarms, dbDriftSum, stockNegative)
-        if (driftAlerts > 0 || stockNegative > 0) {
-            // 실전이라면 Slack 등으로 사람에게. 여기서는 WARN 로그.
-            log.warn { "reconcile alert: checked=${report.checkedCoupons} drift=${report.redisDbDrift} negative=${report.stockNegative}" }
+            val report = ReconcileReport(
+                checkedCoupons = coupons.size,
+                autoFixed = autoFixed,
+                driftAlerts = driftAlerts,
+                falseAlarms = falseAlarms,
+                redisDbDrift = dbDriftSum,
+                stockNegative = stockNegative,
+            )
+            if (driftAlerts > 0 || stockNegative > 0) {
+                // 실전이라면 Slack 등으로 사람에게. 여기서는 WARN 로그.
+                log.warn { "reconcile alert: checked=${report.checkedCoupons} drift=${report.redisDbDrift} negative=${report.stockNegative}" }
+            }
+            return report
+        } finally {
+            running.set(false)
         }
-        return report
     }
 
     private fun reconcileCoupon(couponId: Long): CouponOutcome {
@@ -76,12 +101,14 @@ class Reconciler(
 
         // 매진 플래그 정합 (등식과 독립). 멱등 연산이라 매 분 다시 호출돼도 안전.
         if (first.stock > 0 && first.soldOut) {
-            redis.deleteSoldOut(couponId)
-            metrics.incrementAutoFix(); autoFixed++
+            reconcileRedisRepository.deleteSoldOut(couponId)
+            metrics.incrementAutoFix()
+            autoFixed++
             log.info { "auto-fix: 매진 플래그 해제 coupon=$couponId (stock=${first.stock})" }
         } else if (first.stock == 0L && !first.soldOut) {
-            redis.setSoldOut(couponId, soldOutProperties.ttlSeconds)
-            metrics.incrementAutoFix(); autoFixed++
+            reconcileRedisRepository.setSoldOut(couponId, soldOutProperties.ttlSeconds)
+            metrics.incrementAutoFix()
+            autoFixed++
             log.info { "auto-fix: 매진 플래그 설정 coupon=$couponId" }
         }
 
@@ -89,11 +116,12 @@ class Reconciler(
         // stock 을 건드리지 않아 과발급/중복발급을 만들 수 없으므로 자동 보정이 안전하다.
         if (first.listResidual > 0 && first.dbResidual == 0L) {
             val dbUserIds = issuanceRepository.findIssuedUserIds(couponId)
-            val redisUserIds = redis.userIds(couponId).mapNotNull { it.toLongOrNull() }.toSet()
+            val redisUserIds = reconcileRedisRepository.userIds(couponId).mapNotNull { it.toLongOrNull() }.toSet()
             val missing = dbUserIds.filter { it !in redisUserIds }
             if (missing.isNotEmpty()) {
-                redis.addUsers(couponId, missing)
-                metrics.incrementAutoFix(); autoFixed++
+                reconcileRedisRepository.addUsers(couponId, missing)
+                metrics.incrementAutoFix()
+                autoFixed++
                 log.info { "auto-fix: 사용자 목록 SADD ${missing.size}건 coupon=$couponId" }
             }
         }
@@ -124,14 +152,14 @@ class Reconciler(
 
     private fun readSnapshot(couponId: Long): ReconcileSnapshot? {
         val coupon = couponRepository.findById(couponId).orElse(null) ?: return null
-        val stock = redis.stock(couponId) ?: return null
+        val stock = reconcileRedisRepository.stock(couponId) ?: return null
         return ReconcileSnapshot(
             couponId = couponId,
             total = coupon.totalQuantity,
             issued = coupon.issuedQuantity,
             stock = stock,
-            userCount = redis.userCount(couponId),
-            soldOut = redis.soldOutExists(couponId),
+            userCount = reconcileRedisRepository.userCount(couponId),
+            soldOut = reconcileRedisRepository.soldOutExists(couponId),
         )
     }
 
