@@ -6,38 +6,29 @@ import java.util.concurrent.atomic.AtomicLong
 // drift/negative 는 마지막 실행 기준 게이지(set), auto_fix/false_alarm 은 누적 카운터(increment).
 @Component
 class ReconcileMetrics {
-    private val redisDbDrift = AtomicLong()
-    private val stockNegative = AtomicLong()
-    private val autoFixTotal = AtomicLong()
-    private val falseAlarmTotal = AtomicLong()
+    private val drift = AtomicLong()
+    private val negative = AtomicLong()
+    private val autoFix = AtomicLong()
+    private val falseAlarm = AtomicLong()
 
-    fun setRedisDbDrift(value: Long) = redisDbDrift.set(value)
-    fun setStockNegative(value: Long) = stockNegative.set(value)
+    fun setRedisDbDrift(value: Long) = drift.set(value)
+    fun setStockNegative(value: Long) = negative.set(value)
     fun incrementAutoFix() {
-        autoFixTotal.incrementAndGet()
+        autoFix.incrementAndGet()
     }
     fun incrementFalseAlarm() {
-        falseAlarmTotal.incrementAndGet()
+        falseAlarm.incrementAndGet()
     }
 
-    fun snapshot(): ReconcileMetricsSnapshot = ReconcileMetricsSnapshot(
-        redisDbDrift = redisDbDrift.get(),
-        reconcileAutoFixTotal = autoFixTotal.get(),
-        reconcileFalseAlarmTotal = falseAlarmTotal.get(),
-        stockNegative = stockNegative.get(),
-    )
+    val redisDbDrift: Long get() = drift.get()
+    val stockNegative: Long get() = negative.get()
+    val reconcileAutoFixTotal: Long get() = autoFix.get()
+    val reconcileFalseAlarmTotal: Long get() = falseAlarm.get()
 
     fun reset() {
-        redisDbDrift.set(0)
-        stockNegative.set(0)
-        autoFixTotal.set(0)
-        falseAlarmTotal.set(0)
+        drift.set(0)
+        negative.set(0)
+        autoFix.set(0)
+        falseAlarm.set(0)
     }
 }
-
-class ReconcileMetricsSnapshot(
-    val redisDbDrift: Long,
-    val reconcileAutoFixTotal: Long,
-    val reconcileFalseAlarmTotal: Long,
-    val stockNegative: Long,
-)

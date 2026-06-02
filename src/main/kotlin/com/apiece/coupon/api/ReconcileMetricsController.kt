@@ -14,8 +14,12 @@ class ReconcileMetricsController(
 ) {
 
     @GetMapping
-    fun snapshot(): ReconcileMetricsResponse =
-        ReconcileMetricsResponse.from(reconcileMetrics.snapshot())
+    fun snapshot(): ReconcileMetricsResponse = ReconcileMetricsResponse(
+        redisDbDrift = reconcileMetrics.redisDbDrift,
+        reconcileAutoFixTotal = reconcileMetrics.reconcileAutoFixTotal,
+        reconcileFalseAlarmTotal = reconcileMetrics.reconcileFalseAlarmTotal,
+        stockNegative = reconcileMetrics.stockNegative,
+    )
 
     @PostMapping("/reset")
     fun reset() {
