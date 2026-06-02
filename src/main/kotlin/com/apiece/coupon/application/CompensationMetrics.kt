@@ -5,29 +5,22 @@ import java.util.concurrent.atomic.AtomicLong
 
 @Component
 class CompensationMetrics {
-    private val compensationTotal = AtomicLong()
-    private val idempotentHitTotal = AtomicLong()
+    private val compensated = AtomicLong()
+    private val idempotentHit = AtomicLong()
 
     fun incrementCompensated() {
-        compensationTotal.incrementAndGet()
+        compensated.incrementAndGet()
     }
 
     fun incrementIdempotentHit() {
-        idempotentHitTotal.incrementAndGet()
+        idempotentHit.incrementAndGet()
     }
 
-    fun snapshot(): CompensationMetricsSnapshot = CompensationMetricsSnapshot(
-        compensationTotal = compensationTotal.get(),
-        compensationIdempotentHitTotal = idempotentHitTotal.get(),
-    )
+    val compensationTotal: Long get() = compensated.get()
+    val compensationIdempotentHitTotal: Long get() = idempotentHit.get()
 
     fun reset() {
-        compensationTotal.set(0)
-        idempotentHitTotal.set(0)
+        compensated.set(0)
+        idempotentHit.set(0)
     }
 }
-
-class CompensationMetricsSnapshot(
-    val compensationTotal: Long,
-    val compensationIdempotentHitTotal: Long,
-)

@@ -14,8 +14,10 @@ class CompensationMetricsController(
 ) {
 
     @GetMapping
-    fun snapshot(): CompensationMetricsResponse =
-        CompensationMetricsResponse.from(compensationMetrics.snapshot())
+    fun snapshot(): CompensationMetricsResponse = CompensationMetricsResponse(
+        compensationTotal = compensationMetrics.compensationTotal,
+        compensationIdempotentHitTotal = compensationMetrics.compensationIdempotentHitTotal,
+    )
 
     @PostMapping("/reset")
     fun reset() {
