@@ -13,11 +13,11 @@ class ReconcileMetrics {
 
     fun setRedisDbDrift(value: Long) = drift.set(value)
     fun setStockNegative(value: Long) = negative.set(value)
-    fun incrementAutoFix() {
-        autoFix.incrementAndGet()
+    fun addAutoFix(count: Int) {
+        autoFix.addAndGet(count.toLong())
     }
-    fun incrementFalseAlarm() {
-        falseAlarm.incrementAndGet()
+    fun addFalseAlarm(count: Int) {
+        falseAlarm.addAndGet(count.toLong())
     }
 
     val redisDbDrift: Long get() = drift.get()

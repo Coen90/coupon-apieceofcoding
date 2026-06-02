@@ -55,9 +55,7 @@ class ReconcilerTest {
         verify(exactly = 0) { redis.addUsers(any(), any()) }
         verify(exactly = 0) { redis.deleteSoldOut(any()) }
         verify(exactly = 0) { redis.setSoldOut(any(), any()) }
-        verify(exactly = 0) { metrics.incrementAutoFix() }
-        verify { metrics.setRedisDbDrift(0L) }
-        assert(report.autoFixed == 0 && report.driftAlerts == 0)
+        assert(report.autoFixed == 0 && report.driftAlerts == 0 && report.redisDbDrift == 0L)
     }
 
     @Test
@@ -70,29 +68,27 @@ class ReconcilerTest {
         val report = reconciler.reconcileAll()
 
         verify { redis.addUsers(couponId, match { it.size == 10 }) }
-        verify(exactly = 1) { metrics.incrementAutoFix() }
-        verify { metrics.setRedisDbDrift(0L) }
-        assert(report.autoFixed == 1 && report.driftAlerts == 0)
+        assert(report.autoFixed == 1 && report.driftAlerts == 0 && report.redisDbDrift == 0L)
     }
 
     @Test
     fun `재고 양수인데 매진 플래그 살아있으면 DEL 자동 보정`() {
         setup(total = 5000, issued = 0, stock = 5000, users = 0, soldOut = true)
 
-        reconciler.reconcileAll()
+        val report = reconciler.reconcileAll()
 
         verify(exactly = 1) { redis.deleteSoldOut(couponId) }
-        verify(exactly = 1) { metrics.incrementAutoFix() }
+        assert(report.autoFixed == 1)
     }
 
     @Test
     fun `재고 0인데 매진 플래그 없으면 SET 자동 보정`() {
         setup(total = 5000, issued = 5000, stock = 0, users = 5000, soldOut = false)
 
-        reconciler.reconcileAll()
+        val report = reconciler.reconcileAll()
 
         verify(exactly = 1) { redis.setSoldOut(couponId, 86400) }
-        verify(exactly = 1) { metrics.incrementAutoFix() }
+        assert(report.autoFixed == 1)
     }
 
     @Test
@@ -102,10 +98,8 @@ class ReconcilerTest {
 
         val report = reconciler.reconcileAll()
 
-        verify { metrics.setRedisDbDrift(10L) }
         verify(exactly = 0) { redis.addUsers(any(), any()) }
-        verify(exactly = 0) { metrics.incrementFalseAlarm() }
-        assert(report.driftAlerts == 1 && report.redisDbDrift == 10L)
+        assert(report.driftAlerts == 1 && report.redisDbDrift == 10L && report.falseAlarms == 0)
     }
 
     @Test
@@ -115,8 +109,6 @@ class ReconcilerTest {
 
         val report = reconciler.reconcileAll()
 
-        verify(exactly = 1) { metrics.incrementFalseAlarm() }
-        verify { metrics.setRedisDbDrift(0L) }
-        assert(report.driftAlerts == 0 && report.falseAlarms == 1)
+        assert(report.driftAlerts == 0 && report.falseAlarms == 1 && report.redisDbDrift == 0L)
     }
 }

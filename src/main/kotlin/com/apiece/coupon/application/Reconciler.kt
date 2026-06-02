@@ -39,100 +39,83 @@ class Reconciler(
         try {
             // 활성중 쿠폰을 Redis stock 키 생존으로 근사한다 (본편엔 ends_at 이 없음, 5단원 5.3).
             val coupons = couponRepository.findAll().filter { it.id != null && reconcileRedisRepository.hasStock(it.id!!) }
-
-            var autoFixed = 0
-            var driftAlerts = 0
-            var falseAlarms = 0
-            var dbDriftSum = 0L
-            var stockNegative = 0
-
-            for (coupon in coupons) {
-                val outcome = try {
+            val outcomes = coupons.map { coupon ->
+                try {
                     reconcileCoupon(coupon.id!!)
                 } catch (e: Exception) {
                     log.warn(e) { "reconcile 중 예외 coupon=${coupon.id}, skip" }
                     CouponOutcome()
                 }
-                autoFixed += outcome.autoFixed
-                if (outcome.driftAlert) driftAlerts++
-                if (outcome.falseAlarm) falseAlarms++
-                dbDriftSum += outcome.confirmedDbDrift
-                if (outcome.stockNegative) stockNegative++
             }
 
-            metrics.setRedisDbDrift(dbDriftSum)
-            metrics.setStockNegative(stockNegative.toLong())
-
-            val report = ReconcileReport(coupons.size, autoFixed, driftAlerts, falseAlarms, dbDriftSum, stockNegative)
-            if (driftAlerts > 0 || stockNegative > 0) {
-                log.warn { "reconcile alert: checked=${report.checkedCoupons} drift=${report.redisDbDrift} negative=${report.stockNegative}" }
-            }
+            val report = ReconcileReport(
+                checkedCoupons = coupons.size,
+                autoFixed = outcomes.sumOf { it.autoFixed },
+                driftAlerts = outcomes.count { it.confirmedDbDrift > 0 },
+                falseAlarms = outcomes.count { it.falseAlarm },
+                redisDbDrift = outcomes.sumOf { it.confirmedDbDrift },
+                stockNegative = outcomes.count { it.stockNegative },
+            )
+            metrics.setRedisDbDrift(report.redisDbDrift)
+            metrics.setStockNegative(report.stockNegative.toLong())
+            metrics.addAutoFix(report.autoFixed)
+            metrics.addFalseAlarm(report.falseAlarms)
             return report
         } finally {
             running.set(false)
         }
     }
 
+    // Redis 측 안전한 불일치를 그 자리에서 보정하고, 무엇을 했는지 반환한다 (메트릭 집계는 reconcileAll).
     private fun reconcileCoupon(couponId: Long): CouponOutcome {
-        val first = readSnapshot(couponId) ?: return CouponOutcome()
+        val s = readSnapshot(couponId) ?: return CouponOutcome()
         var autoFixed = 0
+        val stockNegative = s.stock < 0
+        if (stockNegative) log.warn { "재고 음수 감지 coupon=$couponId stock=${s.stock}" }
 
-        val stockNegative = first.stock < 0
-        if (stockNegative) log.warn { "재고 음수 감지 coupon=$couponId stock=${first.stock}" }
-
-        if (first.stock > 0 && first.soldOut) {
+        if (s.stock > 0 && s.soldOut) {
             reconcileRedisRepository.deleteSoldOut(couponId)
-            metrics.incrementAutoFix()
             autoFixed++
-            log.info { "auto-fix: 매진 플래그 해제 coupon=$couponId (stock=${first.stock})" }
-        } else if (first.stock == 0L && !first.soldOut) {
+            log.info { "auto-fix: 매진 플래그 해제 coupon=$couponId" }
+        } else if (s.stock == 0L && !s.soldOut) {
             reconcileRedisRepository.setSoldOut(couponId, soldOutProperties.ttlSeconds)
-            metrics.incrementAutoFix()
             autoFixed++
             log.info { "auto-fix: 매진 플래그 설정 coupon=$couponId" }
         }
 
         // 목록 측만 부족(= Redis 휘발)이면 DB ISSUED 기준 SADD. stock 을 안 건드려 과발급을 못 만들어 안전.
-        if (first.listResidual > 0 && first.dbResidual == 0L) {
-            val dbUserIds = issuanceRepository.findIssuedUserIds(couponId)
-            val redisUserIds = reconcileRedisRepository.userIds(couponId).mapNotNull { it.toLongOrNull() }.toSet()
-            val missing = dbUserIds.filter { it !in redisUserIds }
+        if (s.listResidual > 0 && s.dbResidual == 0L) {
+            val missing = issuanceRepository.findIssuedUserIds(couponId) -
+                reconcileRedisRepository.userIds(couponId).mapNotNull { it.toLongOrNull() }.toSet()
             if (missing.isNotEmpty()) {
                 reconcileRedisRepository.addUsers(couponId, missing)
-                metrics.incrementAutoFix()
                 autoFixed++
                 log.info { "auto-fix: 사용자 목록 SADD ${missing.size}건 coupon=$couponId" }
             }
         }
 
         // DB 측 불일치는 자동 보정이 과발급/회수를 부를 수 있어 알람만. 재검사에서 같은 방향이면 확정 (false alarm 거르기).
-        var driftAlert = false
         var falseAlarm = false
         var confirmedDbDrift = 0L
-        if (first.dbResidual != 0L) {
-            if (reconcileProperties.recheckDelayMs > 0) {
-                Thread.sleep(reconcileProperties.recheckDelayMs)
-            }
-            val second = readSnapshot(couponId)
-            if (second != null && second.dbResidual != 0L && sameSign(first.dbResidual, second.dbResidual)) {
-                driftAlert = true
-                confirmedDbDrift = abs(second.dbResidual)
-                log.warn { "DB 측 불일치 확정 coupon=$couponId residual=${second.dbResidual} (자동 보정 불가, 사람 확인)" }
+        if (s.dbResidual != 0L) {
+            if (reconcileProperties.recheckDelayMs > 0) Thread.sleep(reconcileProperties.recheckDelayMs)
+            val again = readSnapshot(couponId)
+            if (again != null && again.dbResidual != 0L && sameSign(s.dbResidual, again.dbResidual)) {
+                confirmedDbDrift = abs(again.dbResidual)
+                log.warn { "DB 측 불일치 확정 coupon=$couponId residual=${again.dbResidual} (자동 보정 불가, 사람 확인)" }
             } else {
                 falseAlarm = true
-                metrics.incrementFalseAlarm()
                 log.info { "false alarm 무시 coupon=$couponId (재검사에서 사라짐)" }
             }
         }
 
-        return CouponOutcome(autoFixed, driftAlert, falseAlarm, confirmedDbDrift, stockNegative)
+        return CouponOutcome(autoFixed, falseAlarm, confirmedDbDrift, stockNegative)
     }
 
     private fun readSnapshot(couponId: Long): ReconcileSnapshot? {
         val coupon = couponRepository.findById(couponId).orElse(null) ?: return null
         val stock = reconcileRedisRepository.stock(couponId) ?: return null
         return ReconcileSnapshot(
-            couponId = couponId,
             total = coupon.totalQuantity,
             issued = coupon.issuedQuantity,
             stock = stock,
@@ -145,7 +128,6 @@ class Reconciler(
 
     private class CouponOutcome(
         val autoFixed: Int = 0,
-        val driftAlert: Boolean = false,
         val falseAlarm: Boolean = false,
         val confirmedDbDrift: Long = 0L,
         val stockNegative: Boolean = false,
