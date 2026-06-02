@@ -14,8 +14,6 @@ import io.mockk.verify
 import org.junit.jupiter.api.Test
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
 
 class CompensationTransactionalWriterTest {
 
@@ -41,12 +39,11 @@ class CompensationTransactionalWriterTest {
     )
 
     @Test
-    fun `compensation_log 에 이미 있으면 true 반환 + DB 손대지 않음`() {
+    fun `compensation_log 에 이미 있으면 DB 손대지 않음`() {
         every { compensationLogRepository.existsById("c1") } returns true
 
-        val idempotentHit = writer.applyDbStep(command())
+        writer.applyDbStep(command())
 
-        assertTrue(idempotentHit)
         verify(exactly = 0) { issuanceRepository.save(any()) }
         verify(exactly = 0) { couponRepository.decrementIssuedQuantity(any()) }
         verify(exactly = 0) { compensationLogRepository.save(any()) }
@@ -62,9 +59,8 @@ class CompensationTransactionalWriterTest {
         every { compensationLogRepository.existsById("c1") } returns false
         every { issuanceRepository.findByUserIdAndCouponId(42L, 1L) } returns issued
 
-        val idempotentHit = writer.applyDbStep(command())
+        writer.applyDbStep(command())
 
-        assertFalse(idempotentHit)
         assertEquals(IssuanceStatus.CANCELED, issued.status)
         verify(exactly = 1) { couponRepository.decrementIssuedQuantity(1L) }
         verify(exactly = 0) { issuanceRepository.save(any()) } // 기존 행은 dirty checking
@@ -81,9 +77,8 @@ class CompensationTransactionalWriterTest {
         val saveSlot = slot<Issuance>()
         every { issuanceRepository.save(capture(saveSlot)) } answers { saveSlot.captured.apply { id = 99L } }
 
-        val idempotentHit = writer.applyDbStep(command())
+        writer.applyDbStep(command())
 
-        assertFalse(idempotentHit)
         assertEquals(IssuanceStatus.CANCELED, saveSlot.captured.status)
         verify(exactly = 0) { couponRepository.decrementIssuedQuantity(any()) }
         verify { compensationLogRepository.save(any()) }
@@ -99,9 +94,8 @@ class CompensationTransactionalWriterTest {
         every { compensationLogRepository.existsById("c1") } returns false
         every { issuanceRepository.findByUserIdAndCouponId(42L, 1L) } returns used
 
-        val idempotentHit = writer.applyDbStep(command())
+        writer.applyDbStep(command())
 
-        assertFalse(idempotentHit)
         assertEquals(IssuanceStatus.USED, used.status) // 전이 안 함
         verify(exactly = 0) { couponRepository.decrementIssuedQuantity(any()) }
         verify { compensationLogRepository.save(any()) }

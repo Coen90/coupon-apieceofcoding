@@ -61,7 +61,6 @@ class Issuance(
         status = IssuanceStatus.EXPIRED
     }
 
-    // 보상(역연산)으로 발급을 취소. soft delete 라 행은 남고 상태만 전이한다.
     fun markCanceled() {
         status = IssuanceStatus.CANCELED
     }

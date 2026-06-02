@@ -10,8 +10,6 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
-// 운영자/도구가 보상 한 건을 직접 트리거. 같은 compensationId 로 두 번 호출해도
-// 멱등 키 덕에 한 번만 반영된다 (5단원 7. 보상 멱등성 시나리오).
 @RestController
 @RequestMapping("/admin/compensate")
 class AdminCompensationController(
@@ -19,7 +17,7 @@ class AdminCompensationController(
 ) {
     @PostMapping
     fun compensate(@RequestBody request: CompensateRequest): CompensateResponse {
-        val result = compensationService.compensate(
+        val compensated = compensationService.compensate(
             CompensationCommand(
                 couponId = request.couponId,
                 userId = request.userId,
@@ -27,6 +25,6 @@ class AdminCompensationController(
                 reason = CompensationReason.OPERATOR_MANUAL,
             )
         )
-        return CompensateResponse.from(result)
+        return CompensateResponse(request.compensationId, compensated)
     }
 }
