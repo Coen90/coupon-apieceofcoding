@@ -1,0 +1,18 @@
+package com.apiece.coupon.infrastructure.scheduling
+
+import net.javacrumbs.shedlock.core.LockProvider
+import net.javacrumbs.shedlock.provider.redis.spring.RedisLockProvider
+import net.javacrumbs.shedlock.spring.annotation.EnableSchedulerLock
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+import org.springframework.data.redis.connection.RedisConnectionFactory
+
+// 배출 타이머를 한 대만 돌리는 분산 락. 저장소는 같은 Redis 재사용.
+@Configuration
+@EnableSchedulerLock(defaultLockAtMostFor = "PT2S")
+class ShedLockConfig {
+
+    @Bean
+    fun lockProvider(connectionFactory: RedisConnectionFactory): LockProvider =
+        RedisLockProvider(connectionFactory, "coupon")
+}

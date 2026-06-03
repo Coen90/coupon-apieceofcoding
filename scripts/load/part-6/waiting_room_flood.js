@@ -1,0 +1,30 @@
+// 대기실 진입 폭주. 줄을 채워 드레인이 매초 통과 속도만큼 일하게 만든다 (측정은 run.sh 가 admitted 로).
+// BASES 에 콤마로 여러 인스턴스를 주면 VU 가 라운드로빈으로 나눠 진입한다.
+import http from 'k6/http';
+import { Trend } from 'k6/metrics';
+
+const COUPON_ID = __ENV.COUPON_ID || '1';
+const BASES = (__ENV.BASES || 'http://localhost:8080').split(',');
+const RATE = Number(__ENV.RATE || 500);
+const DURATION = __ENV.DURATION || '20s';
+
+const enterLatency = new Trend('enter_latency', true);
+
+export const options = {
+  scenarios: {
+    enter_flood: {
+      executor: 'constant-arrival-rate',
+      rate: RATE, timeUnit: '1s', duration: DURATION,
+      preAllocatedVUs: Math.min(RATE, 2000), maxVUs: 4000,
+    },
+  },
+};
+
+export default function () {
+  const base = BASES[__VU % BASES.length];
+  const userId = `${__VU}${(__ITER + 1) * 100000}`;
+  const res = http.post(`${base}/api/waiting-room/${COUPON_ID}`, null, {
+    headers: { 'X-User-Id': userId },
+  });
+  enterLatency.add(res.timings.duration);
+}

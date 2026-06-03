@@ -34,3 +34,9 @@ class ExpiredException(message: String = "유효기간이 만료된 쿠폰입니
 
 class CanceledException(message: String = "보상으로 취소된 쿠폰입니다") :
     DomainException("CANCELED", HttpStatus.CONFLICT, message)
+
+class NoWaitingRoomPassException(message: String = "대기실 입장권이 없습니다 (먼저 대기실을 통과하세요)") :
+    DomainException("NO_WAITING_ROOM_PASS", HttpStatus.FORBIDDEN, message)
+
+class WaitingRoomUnavailableException(message: String = "대기실 점검 중입니다 (잠시 후 다시 시도해주세요)") :
+    DomainException("WAITING_ROOM_UNAVAILABLE", HttpStatus.SERVICE_UNAVAILABLE, message)
