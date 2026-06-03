@@ -1,5 +1,5 @@
 // 엣지 관문(Spring Cloud Gateway). 별개 프로세스라 Boot 버전 독립 (본 앱 Boot 4, Spring Cloud 는 아직
-// Boot 4 미지원이라 게이트웨이만 Boot 3.5). 빌드: ./gradlew -p gateway jibDockerBuild
+// Boot 4 미지원이라 게이트웨이만 Boot 3.5). 빌드: ./gradlew jibDockerBuild
 plugins {
     kotlin("jvm") version "2.3.21"
     kotlin("plugin.spring") version "2.3.21"

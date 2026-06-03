@@ -94,7 +94,7 @@ services:
     ports:
       - "8081:8080"
 
-  # 엣지 관문. 어뷰저를 대기실 진입 앞에서 IP별로 컷. 이미지 빌드: ./gradlew -p gateway jibDockerBuild
+  # 엣지 관문. 어뷰저를 대기실 진입 앞에서 IP별로 컷. 이미지 빌드: ./gradlew jibDockerBuild
   gateway:
     image: coupon-gateway:latest
     depends_on:
