@@ -58,7 +58,6 @@ scripts/load/part-3/kafka_dlt_peek.sh   # DLT 확인 (3-2c)
 ./scripts/load/part-6/run.sh   # 6-1 part-6-1-waiting-room: Redis 대기실 통과 속도
 ./scripts/load/part-6/edge.sh  # 6-2 part-6-2-edge-rate-limit: 엣지 Rate Limit
 ```
-
 part-5 는 두 등식 `total = 발급누적 + Redis재고 = Redis사용자 + Redis재고` 의 잔차로 불일치를 잰다. p5-1 이상에서는 모든 issuance 주입 이벤트에 발급 시도별 `issuanceAttemptId`를 넣는다. `force_dlt` 는 DB 측(알람 대상), `force_db_only` 는 목록 측(자동 보정 대상)을 깬다.
 DLT는 `dlt-operator-inbox` consumer가 `dlt_inbox`에 저장한 뒤 offset을 커밋한다. 운영자는 `GET /admin/dlt/messages`로 목록을 보고 메시지 ID를 replay 또는 compensate API에 전달한다.
 part-6 는 매진 전 폭주 베이스라인이다. 기본값은 `RATE=1000`, `DURATION=20s`, `QUANTITY=1000000` 이며, `/metrics/traffic/reset` 으로 카운터를 초기화한 뒤 발급 엔드포인트 도착량을 `/metrics/traffic` 에서 읽어 초당 도착 속도를 출력한다.

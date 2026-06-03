@@ -18,6 +18,18 @@ k6 run -e COUPON_ID="$coupon_id" -e RATE="$RATE" -e DURATION="$DURATION" scripts
 
 arrivals=$(curl -fsS "$BASE/metrics/traffic" | jq -r '.issueArrivals')
 secs=${DURATION%s}
-printf '\n\033[1;33m서버 도착(발급 처리 도달): %s건 / %ss = 약 %s건/s\033[0m\n' \
-  "$arrivals" "$secs" "$(( arrivals / secs ))"
+arrival_rate=$(( arrivals / secs ))
+printf '\n\033[1;33m서버 도착(발급 처리 도달): %s건 / %ss = 약 %s건/s\033[0m\n' "$arrivals" "$secs" "$arrival_rate"
 printf '\033[0;37m대기실이 없으니 보낸 만큼(RATE=%s/s) 그대로 서버에 도착한다. 다음 단계에서 이 도착 속도를 통과 속도로 눌러본다.\033[0m\n' "$RATE"
+
+# 베이스라인 기대: 대기실이 없으니 도착 속도가 전송 속도(RATE)에 가깝다 (눌리지 않음). 하한 밖이면 실패.
+TOLERANCE_PERCENT="${TOLERANCE_PERCENT:-30}"
+floor=$(( RATE * (100 - TOLERANCE_PERCENT) / 100 ))
+printf '\n[판정] 기대 도착 속도 약 RATE=%s건/s (허용 하한 %s건/s)\n' "$RATE" "$floor"
+if (( arrival_rate >= floor )); then
+  printf '\033[1;32m  ✓ 통과\033[0m 대기실 없이 보낸 만큼 서버에 도착 (실측 %s건/s)\n' "$arrival_rate"
+  printf '\n\033[1;32m===== part-6-0 테스트 통과 =====\033[0m\n'
+else
+  printf '\033[1;31m  ✗ 실패\033[0m 도착 속도가 전송보다 크게 낮음 (실측 %s건/s, 하한 %s건/s)\n' "$arrival_rate" "$floor"
+  printf '\n\033[1;31m===== part-6-0 테스트 실패 =====\033[0m\n'; exit 1
+fi
