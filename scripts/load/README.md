@@ -1,6 +1,6 @@
 # 부하 / 검증 스크립트
 
-part-2 ~ part-5 시나리오 실행 스크립트. 측정값 해석과 설계 배경은 각 단원 design 문서 참고.
+part-2 ~ part-6 시나리오 실행 스크립트. 측정값 해석과 설계 배경은 각 단원 design 문서 참고.
 
 ## 사전 준비
 
@@ -31,6 +31,7 @@ part-2/   동시성: over_issuance.js, run.sh, verify.sh
 part-3/   큐 디커플링: issue_burst.js, verify_burst.sh, run.sh, kafka_lag.sh, kafka_dlt_peek.sh
 part-4/   캐시+매진 상태: coupon_burst.js, post_sellout_refresh.js, sell_out.sh, run.sh
 part-5/   보상+정합: force_dlt.sh, force_db_only.sh, drift_report.sh, dlt_replay.sh, run.sh, verify_compensation.sh, verify_reconcile.sh
+part-6/   트래픽 제어 베이스라인: create_big_coupon.sh, issue_flood.js, run.sh
 ```
 
 ## 실행
@@ -51,8 +52,13 @@ scripts/load/part-3/kafka_dlt_peek.sh   # DLT 확인 (3-2c)
 ./scripts/load/part-5/verify_compensation.sh  # 5-1 운영자 보상 + 멱등성
 ./scripts/load/part-5/dlt_replay.sh           # DLT inbox 확인 후 메시지 ID로 같은 issuanceAttemptId 재처리
 ./scripts/load/part-5/verify_reconcile.sh     # 5-2 lease 대사 + 자동 보정 + 알람
+
+# part-6 (트래픽 제어 베이스라인): reset, 큰 쿠폰 생성, k6, 서버 도착량 측정 통합 러너
+./scripts/load/part-6/run.sh
+RATE=2000 DURATION=30s ./scripts/load/part-6/run.sh
+QUANTITY=2000000 BASE_URL=http://localhost:8080 ./scripts/load/part-6/run.sh
 ```
 
 part-5 는 두 등식 `total = 발급누적 + Redis재고 = Redis사용자 + Redis재고` 의 잔차로 불일치를 잰다. p5-1 이상에서는 모든 issuance 주입 이벤트에 발급 시도별 `issuanceAttemptId`를 넣는다. `force_dlt` 는 DB 측(알람 대상), `force_db_only` 는 목록 측(자동 보정 대상)을 깬다.
-
 DLT는 `dlt-operator-inbox` consumer가 `dlt_inbox`에 저장한 뒤 offset을 커밋한다. 운영자는 `GET /admin/dlt/messages`로 목록을 보고 메시지 ID를 replay 또는 compensate API에 전달한다.
+part-6 는 매진 전 폭주 베이스라인이다. 기본값은 `RATE=1000`, `DURATION=20s`, `QUANTITY=1000000` 이며, `/metrics/traffic/reset` 으로 카운터를 초기화한 뒤 발급 엔드포인트 도착량을 `/metrics/traffic` 에서 읽어 초당 도착 속도를 출력한다.
