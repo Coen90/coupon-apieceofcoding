@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
-# part-6-2 엣지 Rate Limit 검증. 게이트웨이(8090) 뒤의 앱(8080) 도착 수를 서버측 카운터로 잰다.
-# 어뷰저가 보낸 폭주 중 실제로 서버에 도달하는 건 토큰 한도만큼뿐이고 나머지는 엣지에서 429 로 컷된다.
-#
-# 사용:  ./scripts/load/part-6/edge.sh
+# part-6-2 엣지 Rate Limit 검증. 어뷰저 폭주 중 서버(앱 8080)에 도달하는 건 토큰 한도만큼뿐,
+# 나머지는 게이트웨이(8090)에서 429 로 컷. 사용: ./scripts/load/part-6/edge.sh
 set -euo pipefail
 cd "$(dirname "$0")/../../.."
 

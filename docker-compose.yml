@@ -94,8 +94,7 @@ services:
     ports:
       - "8081:8080"
 
-  # 엣지 관문. 어뷰저를 대기실 진입 앞에서 컷한다 (IP/사용자별 Rate Limit).
-  # 이미지 빌드: ./gradlew -p gateway jibDockerBuild
+  # 엣지 관문. 어뷰저를 대기실 진입 앞에서 IP별로 컷. 이미지 빌드: ./gradlew -p gateway jibDockerBuild
   gateway:
     image: coupon-gateway:latest
     depends_on:
@@ -107,7 +106,7 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       COUPON_SERVICE_URI: http://coupon-service:8080
-      # 한 사용자/IP 는 초당 5번, 순간 최대 10번까지. 셸에서 오버라이드 가능.
+      # 한 클라이언트 IP 는 초당 5번, 순간 최대 10번까지. 셸에서 오버라이드 가능.
       RATE_LIMIT_REPLENISH: ${RATE_LIMIT_REPLENISH:-5}
       RATE_LIMIT_BURST: ${RATE_LIMIT_BURST:-10}
     ports:

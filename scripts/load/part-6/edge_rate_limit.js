@@ -1,6 +1,5 @@
-// 엣지 Rate Limit 검증. 게이트웨이(8090)로 어뷰저와 정상 사용자를 동시에 보낸다.
-//   - 어뷰저: 한 사용자 id 로 초당 수백 번. Token Bucket 한도를 넘는 만큼 429 로 컷.
-//   - 정상: 매 요청 다른 사용자 id. 각자 버킷이라 한 번도 안 막힌다.
+// 엣지 Rate Limit 검증. 게이트웨이로 어뷰저(같은 IP)와 정상(각자 다른 IP)을 동시에 보낸다.
+// 게이트웨이가 클라이언트 IP로 한도를 걸므로, k6 가 LB 역할로 X-Forwarded-For 로 클라이언트를 구분한다.
 import http from 'k6/http';
 import { Counter } from 'k6/metrics';
 
@@ -33,14 +32,19 @@ export const options = {
 };
 
 export function abuser() {
-  const res = http.post(`${BASE}/api/waiting-room/${COUPON_ID}`, null, { headers: { 'X-User-Id': '424242' } });
+  const res = http.post(`${BASE}/api/waiting-room/${COUPON_ID}`, null, {
+    headers: { 'X-Forwarded-For': '198.51.100.10', 'X-User-Id': '424242' },
+  });
   if (res.status === 200) abuserPassed.add(1);
   else if (res.status === 429) abuserBlocked.add(1);
 }
 
 export function normal() {
+  const clientIp = `203.0.113.${(__VU % 250) + 1}`;  // VU 한 명 = 클라이언트 한 명
   const userId = `9${__VU}${(__ITER + 1) * 1000}`;
-  const res = http.post(`${BASE}/api/waiting-room/${COUPON_ID}`, null, { headers: { 'X-User-Id': userId } });
+  const res = http.post(`${BASE}/api/waiting-room/${COUPON_ID}`, null, {
+    headers: { 'X-Forwarded-For': clientIp, 'X-User-Id': userId },
+  });
   if (res.status === 200) normalPassed.add(1);
   else if (res.status === 429) normalBlocked.add(1);
 }
