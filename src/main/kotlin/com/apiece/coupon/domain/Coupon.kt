@@ -17,14 +17,14 @@ class Coupon(
     @Column(name = "total_quantity", nullable = false)
     var totalQuantity: Int,
 
+    @Column(name = "issued_quantity", nullable = false)
+    var issuedQuantity: Int = 0,
+
     @Column(name = "validity_days", nullable = false)
     var validityDays: Int = 7,
 
     @Column(name = "starts_at")
     var startsAt: LocalDateTime? = null,
-
-    @Column(name = "issued_quantity", nullable = false)
-    var issuedQuantity: Int = 0,
 
     @Column(name = "created_at", nullable = false, updatable = false)
     var createdAt: LocalDateTime = LocalDateTime.now(),
