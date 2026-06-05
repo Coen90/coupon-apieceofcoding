@@ -33,15 +33,15 @@ class Issuance(
     @Column(name = "coupon_id", nullable = false)
     var couponId: Long,
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    var status: IssuanceStatus = IssuanceStatus.ISSUED,
+
     @Column(name = "issued_at", nullable = false, updatable = false)
     var issuedAt: LocalDateTime,
 
     @Column(name = "expires_at", nullable = false)
     var expiresAt: LocalDateTime,
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 16)
-    var status: IssuanceStatus = IssuanceStatus.ISSUED,
 
     @Column(name = "used_at")
     var usedAt: LocalDateTime? = null,
