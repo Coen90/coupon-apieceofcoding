@@ -71,7 +71,6 @@ jib {
 	}
 	container {
 		ports = listOf("8080")
-		jvmFlags = listOf("-XX:MaxRAMPercentage=75")
 		creationTime.set("USE_CURRENT_TIMESTAMP")
 	}
 }
