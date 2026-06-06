@@ -17,8 +17,6 @@ class CouponIssuer(
         Long::class.java,
     )
 
-    // 사용자 중복 검증 + 재고 검증 + 재고 차감 + 사용자 등록을 Lua 한 덩어리로 atomic 실행.
-    // 실패 시 도메인 예외를 던진다.
     fun tryIssue(couponId: Long, userId: Long) {
         val raw = redisTemplate.execute(
             script,
