@@ -14,7 +14,6 @@ import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
 import org.junit.jupiter.api.Test
-import org.springframework.dao.DataIntegrityViolationException
 import java.time.LocalDateTime
 import java.util.Optional
 import kotlin.test.assertEquals
@@ -44,12 +43,13 @@ class CouponServiceTest {
         val coupon = coupon(id = 1L, totalQuantity = 10, issuedQuantity = 5)
         val captured = slot<Issuance>()
         every { couponRepository.findById(1L) } returns Optional.of(coupon)
+        every { issuanceRepository.existsByUserIdAndCouponId(42L, 1L) } returns false
         every { couponRepository.incrementIssuedQuantity(1L) } returns 1
         every { issuanceRepository.save(capture(captured)) } answers { captured.captured.also { it.id = 99L } }
 
         val result = service.issue(1L, 42L)
 
-        verify { couponIssuer.tryIssue(1L, 42L) }
+        verify { couponIssuer.tryIssue(1L) }
         verify { couponRepository.incrementIssuedQuantity(1L) }
         assertEquals(42L, result.userId)
         assertEquals(1L, result.couponId)
@@ -72,23 +72,15 @@ class CouponServiceTest {
     @Test
     fun `Issuer 가 SoldOutException 을 던지면 그대로 전파`() {
         every { couponRepository.findById(1L) } returns Optional.of(coupon(id = 1L))
-        every { couponIssuer.tryIssue(1L, 42L) } throws SoldOutException()
+        every { issuanceRepository.existsByUserIdAndCouponId(42L, 1L) } returns false
+        every { couponIssuer.tryIssue(1L) } throws SoldOutException()
         assertFailsWith<SoldOutException> { service.issue(1L, 42L) }
     }
 
     @Test
-    fun `Issuer 가 AlreadyIssuedException 을 던지면 그대로 전파`() {
+    fun `이미 발급된 사용자면 AlreadyIssuedException`() {
         every { couponRepository.findById(1L) } returns Optional.of(coupon(id = 1L))
-        every { couponIssuer.tryIssue(1L, 42L) } throws AlreadyIssuedException()
-        assertFailsWith<AlreadyIssuedException> { service.issue(1L, 42L) }
-    }
-
-    @Test
-    fun `Issuer 가 통과해도 DB UNIQUE 가 막으면 AlreadyIssuedException`() {
-        every { couponRepository.findById(1L) } returns Optional.of(coupon(id = 1L))
-        every { couponRepository.incrementIssuedQuantity(1L) } returns 1
-        every { issuanceRepository.save(any()) } throws DataIntegrityViolationException("uk_issuance_user_coupon")
-
+        every { issuanceRepository.existsByUserIdAndCouponId(42L, 1L) } returns true
         assertFailsWith<AlreadyIssuedException> { service.issue(1L, 42L) }
     }
 

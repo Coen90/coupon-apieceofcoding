@@ -8,7 +8,6 @@ import com.apiece.coupon.domain.IssuanceRepository
 import com.apiece.coupon.support.AlreadyIssuedException
 import com.apiece.coupon.support.CouponNotFoundException
 import com.apiece.coupon.support.NotStartedException
-import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -44,20 +43,20 @@ class CouponService(
             throw NotStartedException()
         }
 
-        couponIssuer.tryIssue(couponId, userId)
-        couponRepository.incrementIssuedQuantity(couponId)
-
-        return try {
-            issuanceRepository.save(
-                Issuance(
-                    userId = userId,
-                    couponId = couponId,
-                    issuedAt = now,
-                    expiresAt = now.plusDays(coupon.validityDays.toLong()),
-                )
-            )
-        } catch (e: DataIntegrityViolationException) {
+        if (issuanceRepository.existsByUserIdAndCouponId(userId, couponId)) {
             throw AlreadyIssuedException()
         }
+
+        couponIssuer.tryIssue(couponId)
+        couponRepository.incrementIssuedQuantity(couponId)
+
+        return issuanceRepository.save(
+            Issuance(
+                userId = userId,
+                couponId = couponId,
+                issuedAt = now,
+                expiresAt = now.plusDays(coupon.validityDays.toLong()),
+            )
+        )
     }
 }
