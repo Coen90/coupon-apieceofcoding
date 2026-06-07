@@ -30,7 +30,6 @@ class CouponService(
         return couponRepository.save(coupon)
     }
 
-    // SELECT ... FOR UPDATE 로 coupon 행을 락해 재고 차감과 1인 1매 검사를 직렬화한다.
     @Transactional
     fun issue(couponId: Long, userId: Long): Issuance {
         val coupon = couponRepository.findByIdForUpdate(couponId)
