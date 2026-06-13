@@ -54,6 +54,5 @@ check "자동으로 고친 횟수" "$(recon_metric reconcileAutoFixTotal)" "1"
 
 ############################################
 check "재고가 음수로 내려간 쿠폰 수(항상 0)" "$(recon_metric stockNegative)" "0"
-check "잘못된 경보 횟수(이번엔 0)" "$(recon_metric reconcileFalseAlarmTotal)" "0"
 
 summary "part-5-2"

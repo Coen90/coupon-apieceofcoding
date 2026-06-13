@@ -5,7 +5,6 @@ class ReconcileReport(
     val checkedCoupons: Int,
     val autoFixed: Int,
     val driftAlerts: Int,
-    val falseAlarms: Int,
     val redisDbDrift: Long,
     val stockNegative: Int,
 )

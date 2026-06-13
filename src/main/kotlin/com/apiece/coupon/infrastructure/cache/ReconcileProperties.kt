@@ -5,5 +5,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 @ConfigurationProperties(prefix = "coupon.reconcile")
 class ReconcileProperties(
     val intervalMs: Long,
-    val recheckDelayMs: Long,
+    val gracePeriodMs: Long,
+    val batchSize: Int,
 )

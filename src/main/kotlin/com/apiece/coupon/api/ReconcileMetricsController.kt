@@ -17,7 +17,6 @@ class ReconcileMetricsController(
     fun snapshot(): ReconcileMetricsResponse = ReconcileMetricsResponse(
         redisDbDrift = reconcileMetrics.redisDbDrift,
         reconcileAutoFixTotal = reconcileMetrics.reconcileAutoFixTotal,
-        reconcileFalseAlarmTotal = reconcileMetrics.reconcileFalseAlarmTotal,
         stockNegative = reconcileMetrics.stockNegative,
     )
 

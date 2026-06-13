@@ -21,7 +21,7 @@ class ReconcilerTest {
     private val reconciler = Reconciler(
         couponRepository, issuanceRepository, redis,
         SoldOutProperties(ttlSeconds = 86400, fastPathTtlMs = 1000),
-        ReconcileProperties(intervalMs = 60000, recheckDelayMs = 0),
+        ReconcileProperties(intervalMs = 60000, gracePeriodMs = 10000, batchSize = 100),
         metrics,
     )
 
@@ -31,17 +31,14 @@ class ReconcilerTest {
     private fun setup(
         total: Int, issued: Int,
         stock: Long, users: Long, soldOut: Boolean,
-        stockSecond: Long? = null,
+        lastIssuedAtMs: Long? = null,
     ) {
         val coupon = Coupon(name = "t", totalQuantity = total, issuedQuantity = issued, id = couponId)
-        every { couponRepository.findAll() } returns listOf(coupon)
+        every { couponRepository.findByIdGreaterThanOrderByIdAsc(any(), any()) } returns listOf(coupon)
         every { couponRepository.findById(couponId) } returns Optional.of(coupon)
         every { redis.hasStock(couponId) } returns true
-        if (stockSecond == null) {
-            every { redis.stock(couponId) } returns stock
-        } else {
-            every { redis.stock(couponId) } returnsMany listOf(stock, stockSecond)
-        }
+        every { redis.lastIssuedAtMs(couponId) } returns lastIssuedAtMs
+        every { redis.stock(couponId) } returns stock
         every { redis.userCount(couponId) } returns users
         every { redis.soldOutExists(couponId) } returns soldOut
     }
@@ -92,23 +89,23 @@ class ReconcilerTest {
     }
 
     @Test
-    fun `DB 측 불일치가 재검사에서도 같으면 알람 (자동 보정 안 함)`() {
-        // issued 0, stock 4990 -> DB 측 +10. users 10 -> 목록 측 정합. 재검사도 동일.
+    fun `DB 측 불일치는 알람만 내고 자동 보정하지 않음`() {
+        // issued 0, stock 4990 -> DB 측 +10. users 10 -> 목록 측 정합.
         setup(total = 5000, issued = 0, stock = 4990, users = 10, soldOut = false)
 
         val report = reconciler.reconcileAll()
 
         verify(exactly = 0) { redis.addUsers(any(), any()) }
-        assert(report.driftAlerts == 1 && report.redisDbDrift == 10L && report.falseAlarms == 0)
+        assert(report.driftAlerts == 1 && report.redisDbDrift == 10L)
     }
 
     @Test
-    fun `DB 측 불일치가 재검사에서 사라지면 false alarm`() {
-        // 1차 stock 4990 (DB 측 +10), 재검사 stock 5000 (정합) -> false alarm.
-        setup(total = 5000, issued = 0, stock = 4990, users = 10, soldOut = false, stockSecond = 5000)
+    fun `최근 발급된 쿠폰은 grace period 동안 건너뜀`() {
+        setup(total = 5000, issued = 0, stock = 4990, users = 10, soldOut = false, lastIssuedAtMs = Long.MAX_VALUE)
 
         val report = reconciler.reconcileAll()
 
-        assert(report.driftAlerts == 0 && report.falseAlarms == 1 && report.redisDbDrift == 0L)
+        verify(exactly = 0) { couponRepository.findById(couponId) }
+        assert(report.checkedCoupons == 0 && report.driftAlerts == 0 && report.redisDbDrift == 0L)
     }
 }

@@ -12,6 +12,9 @@ class CouponReconcileRedisRepository(
     fun hasStock(couponId: Long): Boolean =
         redis.hasKey("coupon:$couponId:stock")
 
+    fun lastIssuedAtMs(couponId: Long): Long? =
+        redis.opsForValue().get("coupon:$couponId:last_issued_at_ms")?.toLongOrNull()
+
     // 키가 없으면 null (추적 대상 아님 또는 휘발).
     fun stock(couponId: Long): Long? =
         redis.opsForValue().get("coupon:$couponId:stock")?.toLongOrNull()
