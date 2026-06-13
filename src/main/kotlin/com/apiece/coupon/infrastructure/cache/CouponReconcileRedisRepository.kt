@@ -9,11 +9,17 @@ class CouponReconcileRedisRepository(
     private val redis: StringRedisTemplate,
 ) {
 
-    fun hasStock(couponId: Long): Boolean =
-        redis.hasKey("coupon:$couponId:stock")
-
-    fun lastIssuedAtMs(couponId: Long): Long? =
-        redis.opsForValue().get("coupon:$couponId:last_issued_at_ms")?.toLongOrNull()
+    // 발급 시각이 (fromExclusiveMs, toInclusiveMs] 에 든 쿠폰 id (대사 sliding window).
+    // score 는 정수 ms 라 하한에 +1 해서 직전 회차가 본 cutoff 를 다시 보지 않게 한다.
+    fun couponIdsIssuedBetween(fromExclusiveMs: Long, toInclusiveMs: Long): List<Long> {
+        if (toInclusiveMs <= fromExclusiveMs) return emptyList()
+        val members = redis.opsForZSet().rangeByScore(
+            "coupon:reconcile:recent",
+            (fromExclusiveMs + 1).toDouble(),
+            toInclusiveMs.toDouble(),
+        ) ?: emptySet()
+        return members.mapNotNull { it.toLongOrNull() }
+    }
 
     // 키가 없으면 null (추적 대상 아님 또는 휘발).
     fun stock(couponId: Long): Long? =

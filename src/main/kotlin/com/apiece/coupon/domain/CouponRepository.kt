@@ -1,6 +1,5 @@
 package com.apiece.coupon.domain
 
-import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
@@ -16,6 +15,4 @@ interface CouponRepository : JpaRepository<Coupon, Long> {
     @Modifying
     @Query("UPDATE Coupon c SET c.issuedQuantity = c.issuedQuantity - 1 WHERE c.id = :id AND c.issuedQuantity > 0")
     fun decrementIssuedQuantity(@Param("id") id: Long): Int
-
-    fun findByIdGreaterThanOrderByIdAsc(id: Long, pageable: Pageable): List<Coupon>
 }

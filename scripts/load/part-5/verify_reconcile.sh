@@ -47,6 +47,10 @@ printf '\n\033[1;35m##### C단계: 재고는 남았는데 매진 표시가 잘�
 reset_recon_metrics
 CID3=$(./scripts/load/create_coupon.sh)
 redis_cli SET "coupon:$CID3:sold_out" 1 >/dev/null   # 재고는 5000 인데 매진 표시만 켜진 상태 주입
+# 발급 활동이 있었던 쿠폰으로 간주해 대사 발급 시각 인덱스에 등록 (grace 보다 과거 시각).
+redis_cli EVAL \
+  "redis.call('ZADD', KEYS[1], (tonumber(redis.call('TIME')[1]) - 20) * 1000, ARGV[1])" \
+  1 "coupon:reconcile:recent" "$CID3" >/dev/null
 check "고치기 전: 매진 표시 있음" "$(redis_cli EXISTS "coupon:$CID3:sold_out")" "1"
 run_reconcile
 check "고친 후: 매진 표시 꺼짐" "$(redis_cli EXISTS "coupon:$CID3:sold_out")" "0"

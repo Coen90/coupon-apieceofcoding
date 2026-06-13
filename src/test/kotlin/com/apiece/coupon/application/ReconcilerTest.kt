@@ -8,6 +8,7 @@ import com.apiece.coupon.infrastructure.cache.ReconcileProperties
 import com.apiece.coupon.infrastructure.cache.SoldOutProperties
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
 import org.junit.jupiter.api.Test
 import java.util.Optional
@@ -18,26 +19,24 @@ class ReconcilerTest {
     private val issuanceRepository = mockk<IssuanceRepository>(relaxed = true)
     private val redis = mockk<CouponReconcileRedisRepository>(relaxUnitFun = true)
     private val metrics = mockk<ReconcileMetrics>(relaxUnitFun = true)
+    private val gracePeriodMs = 10000L
     private val reconciler = Reconciler(
         couponRepository, issuanceRepository, redis,
         SoldOutProperties(ttlSeconds = 86400, fastPathTtlMs = 1000),
-        ReconcileProperties(intervalMs = 60000, gracePeriodMs = 10000, batchSize = 100),
+        ReconcileProperties(intervalMs = 60000, gracePeriodMs = gracePeriodMs),
         metrics,
     )
 
     private val couponId = 1L
 
-    // total/issued 만 다른 쿠폰 한 건을 활성중으로 세팅하고, Redis 값은 인자로 stub.
+    // total/issued 만 다른 쿠폰 한 건이 발급 window 에 들어온 상황을 세팅하고, Redis 값은 인자로 stub.
     private fun setup(
         total: Int, issued: Int,
         stock: Long, users: Long, soldOut: Boolean,
-        lastIssuedAtMs: Long? = null,
     ) {
         val coupon = Coupon(name = "t", totalQuantity = total, issuedQuantity = issued, id = couponId)
-        every { couponRepository.findByIdGreaterThanOrderByIdAsc(any(), any()) } returns listOf(coupon)
+        every { redis.couponIdsIssuedBetween(any(), any()) } returns listOf(couponId)
         every { couponRepository.findById(couponId) } returns Optional.of(coupon)
-        every { redis.hasStock(couponId) } returns true
-        every { redis.lastIssuedAtMs(couponId) } returns lastIssuedAtMs
         every { redis.stock(couponId) } returns stock
         every { redis.userCount(couponId) } returns users
         every { redis.soldOutExists(couponId) } returns soldOut
@@ -100,12 +99,24 @@ class ReconcilerTest {
     }
 
     @Test
-    fun `최근 발급된 쿠폰은 grace period 동안 건너뜀`() {
-        setup(total = 5000, issued = 0, stock = 4990, users = 10, soldOut = false, lastIssuedAtMs = Long.MAX_VALUE)
+    fun `발급 window 밖 쿠폰은 검사하지 않음`() {
+        every { redis.couponIdsIssuedBetween(any(), any()) } returns emptyList()
 
         val report = reconciler.reconcileAll()
 
-        verify(exactly = 0) { couponRepository.findById(couponId) }
+        verify(exactly = 0) { couponRepository.findById(any()) }
         assert(report.checkedCoupons == 0 && report.driftAlerts == 0 && report.redisDbDrift == 0L)
+    }
+
+    @Test
+    fun `대사 상한은 현재 시각에서 grace period 를 뺀 값`() {
+        val toSlot = slot<Long>()
+        every { redis.couponIdsIssuedBetween(any(), capture(toSlot)) } returns emptyList()
+
+        val before = System.currentTimeMillis()
+        reconciler.reconcileAll()
+        val after = System.currentTimeMillis()
+
+        assert(toSlot.captured in (before - gracePeriodMs)..(after - gracePeriodMs))
     }
 }
