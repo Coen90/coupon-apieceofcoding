@@ -45,8 +45,8 @@ kotlin {
 
 jib {
     from {
-        // 본 앱과 같은 base 재사용. 21 바이트코드는 25 JRE 에서 그대로 돈다.
-        image = "docker://eclipse-temurin:25-jre@sha256:04262e8782d6b034ee5d7c1c5d4e8938fcf2063a76b4bfcd84e5d994d09c27bc"
+        // 본 앱과 같은 base 이미지 사용. 21 바이트코드는 25 JRE 에서 그대로 돈다.
+        image = "eclipse-temurin:25-jre"
         platforms {
             platform {
                 architecture = "arm64"
