@@ -10,6 +10,7 @@ class IssuanceWorker(
     @KafkaListener(
         topics = [IssuanceTopics.REQUESTED],
         groupId = IssuanceTopics.CONSUMER_GROUP,
+        concurrency = "3",
     )
     fun consume(event: IssuanceRequested) {
         writer.write(event)

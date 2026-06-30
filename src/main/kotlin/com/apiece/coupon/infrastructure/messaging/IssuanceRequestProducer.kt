@@ -8,6 +8,6 @@ class IssuanceRequestProducer(
     private val kafkaTemplate: KafkaTemplate<String, Any>,
 ) {
     fun publish(event: IssuanceRequested) {
-        kafkaTemplate.send(IssuanceTopics.REQUESTED, event.couponId.toString(), event)
+        kafkaTemplate.send(IssuanceTopics.REQUESTED, event.userId.toString(), event)
     }
 }

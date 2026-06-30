@@ -5,7 +5,7 @@ scripts/load/
 ├── reset.sh / create_coupon.sh   # 공유 헬퍼
 ├── part-2/                       # 동시성/정확성
 │   ├── over_issuance.js          # 5000 req/s 30s, 재고 race
-│   ├── duplicate_issuance.js     # 5000 req/s 30s, 1인 1매
+│   ├── run.sh                    # reset/create/k6/verify 통합 러너
 │   └── verify.sh                 # issued_quantity vs issuance_rows
 └── part-3/                       # 큐 디커플링
     ├── issue_burst.js            # 5000 req/s 30s, P99 측정
@@ -15,18 +15,16 @@ scripts/load/
     └── kafka_dlt_peek.sh         # (3-2c) DLT 토픽 확인
 ```
 
-사전 준비: `brew install k6 jq` + `docker pull eclipse-temurin:25-jre` + `docker compose up -d`.
-
-> `docker pull` 은 한 번만. Jib 가 base image 를 로컬 docker daemon 에서 가져오게 설정돼 있어 hub credential helper noise 와 digest reproducibility 경고가 같이 사라진다.
+사전 준비: `brew install k6 jq` + `docker compose up -d`.
 
 ### 브랜치 전환 시 (이미지 재생성)
 
-브랜치마다 서비스 코드가 다르므로, 전환 후에는 **이미지를 새로 굽고 `coupon-service` 컨테이너만 교체**한다. mysql/redis/kafka 는 그대로 둔다.
+브랜치마다 서비스 코드가 다르므로, 전환 후에는 이미지를 새로 굽고 `coupon-service` 컨테이너만 교체한다. mysql/redis/kafka 는 그대로 둔다.
 
 ```bash
 git checkout <branch>
-./gradlew jibDockerBuild                                # coupon-service:latest 재생성 (Jib)
-docker compose up -d --force-recreate coupon-service    # 새 이미지로 컨테이너만 교체
+./gradlew jibDockerBuild
+docker compose up -d --force-recreate coupon-service
 ```
 
 이걸 빼먹으면 이전 브랜치의 코드가 그대로 돌아 측정값이 헷갈린다. 재시작 후 `docker compose logs -f coupon-service` 로 `Started CouponServiceApplication` 한 줄 뜨는 것까지 확인하고 부하 시나리오를 돌리자.
@@ -34,10 +32,7 @@ docker compose up -d --force-recreate coupon-service    # 새 이미지로 컨�
 ## part-2
 
 ```bash
-./scripts/load/reset.sh
-COUPON_ID=$(scripts/load/create_coupon.sh)
-k6 run -e COUPON_ID=$COUPON_ID scripts/load/part-2/over_issuance.js
-COUPON_ID=$COUPON_ID scripts/load/part-2/verify.sh
+./scripts/load/part-2/run.sh
 ```
 
 `over_issuance=FAIL` 은 재고 race, `count_match=FAIL` 은 카운터 lost update. 자세한 해석은 [2단원 design](../../../../materials/domain/02-coupon-concurrency-design.md).
