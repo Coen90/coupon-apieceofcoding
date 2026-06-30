@@ -1,6 +1,6 @@
 # 부하 / 검증 스크립트
 
-part-2 ~ part-5 시나리오 실행 스크립트. 측정값 해석과 설계 배경은 각 단원 design 문서 참고.
+part-2 ~ part-3 시나리오 실행 스크립트. 측정값 해석과 설계 배경은 각 단원 design 문서 참고.
 
 ## 사전 준비
 
@@ -24,31 +24,18 @@ docker compose up -d --force-recreate coupon-service
 ```
 공유      reset.sh, create_coupon.sh
 part-2/   동시성: over_issuance.js, run.sh, verify.sh
-part-3/   큐 디커플링: issue_burst.js, verify_burst.sh, run.sh, kafka_lag.sh, kafka_dlt_peek.sh
-part-4/   캐시+매진 상태: coupon_burst.js, post_sellout_refresh.js, sell_out.sh, run.sh
-part-5/   보상+정합: force_dlt.sh, force_db_only.sh, drift_report.sh, run.sh, verify_compensation.sh, verify_reconcile.sh
+part-3/   큐 디커플링: issue_burst.js, run.sh, verify_burst.sh
 ```
 
 ## 실행
 
 ```bash
 # part-2 (동시성)
-./scripts/load/reset.sh
-COUPON_ID=$(scripts/load/create_coupon.sh)
-k6 run -e COUPON_ID=$COUPON_ID scripts/load/part-2/over_issuance.js
-COUPON_ID=$COUPON_ID scripts/load/part-2/verify.sh
+./scripts/load/part-2/run.sh
 
-# part-3 (큐 디커플링): reset, create, k6, verify 통합 러너
+# part-3 (큐 디커플링)
 ./scripts/load/part-3/run.sh
-scripts/load/part-3/kafka_dlt_peek.sh   # DLT 확인 (3-2c)
-
-# part-4 (캐시 + 매진 상태)
-./scripts/load/part-4/run.sh            # coupon | sellout | all
-
-# part-5 (보상 + 정합): 부하보다 "주입 + 검증"
-./scripts/load/part-5/run.sh                  # 5-0 주입 후 drift 잔존 (베이스라인)
-./scripts/load/part-5/verify_compensation.sh  # 5-1 DLT 보상 + 멱등성
-./scripts/load/part-5/verify_reconcile.sh     # 5-2 자동 보정 + 알람
+./scripts/load/part-3/run.sh --once
 ```
 
-part-5 는 두 등식 `total = 발급누적 + Redis재고 = Redis사용자 + Redis재고` 의 잔차로 불일치를 잰다. `force_dlt` 는 DB 측(알람 대상), `force_db_only` 는 목록 측(자동 보정 대상)을 깬다.
+`run.sh` 는 `reset → create_coupon → k6 → verify_burst` 를 한 번에 묶고, 기본으로 두 회차를 도는 워밍업 절차까지 자동화한다. 서비스 프로세스는 띄운 채로 두고, 회차 사이에 `reset.sh` 로 DB/Redis 만 비운다.
