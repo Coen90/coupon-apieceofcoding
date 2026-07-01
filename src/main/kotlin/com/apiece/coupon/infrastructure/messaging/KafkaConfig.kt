@@ -8,20 +8,18 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.kafka.annotation.EnableKafka
-import tools.jackson.databind.json.JsonMapper
-import org.springframework.kafka.support.JacksonMapperUtils
-import org.apache.kafka.clients.admin.AdminClientConfig
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory
 import org.springframework.kafka.core.ConsumerFactory
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory
 import org.springframework.kafka.core.DefaultKafkaProducerFactory
-import org.springframework.kafka.core.KafkaAdmin
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.kafka.core.ProducerFactory
 import org.springframework.kafka.listener.DefaultErrorHandler
+import org.springframework.kafka.support.JacksonMapperUtils
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer
 import org.springframework.kafka.support.serializer.JacksonJsonSerializer
+import tools.jackson.databind.json.JsonMapper
 
 @Configuration
 @EnableKafka
@@ -30,13 +28,6 @@ class KafkaConfig(
 ) {
 
     private val jsonMapper: JsonMapper = JacksonMapperUtils.enhancedJsonMapper()
-
-    @Bean
-    fun kafkaAdmin(): KafkaAdmin {
-        val admin = KafkaAdmin(mapOf(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG to bootstrapServers))
-        admin.setAutoCreate(false)
-        return admin
-    }
 
     @Bean
     fun producerFactory(): ProducerFactory<String, Any> {
