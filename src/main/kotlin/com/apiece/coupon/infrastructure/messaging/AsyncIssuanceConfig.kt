@@ -6,11 +6,13 @@ import org.springframework.scheduling.annotation.EnableAsync
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import java.util.concurrent.Executor
 
+const val ISSUANCE_TASK_EXECUTOR = "issuanceTaskExecutor"
+
 @Configuration
 @EnableAsync
 class AsyncIssuanceConfig {
 
-    @Bean(name = ["taskExecutor"])
+    @Bean(name = [ISSUANCE_TASK_EXECUTOR])
     fun issuanceTaskExecutor(): Executor {
         val executor = ThreadPoolTaskExecutor()
         executor.corePoolSize = 1
