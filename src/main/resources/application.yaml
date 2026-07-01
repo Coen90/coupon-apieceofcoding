@@ -21,25 +21,6 @@ spring:
       enabled: true
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9094}
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
-      acks: "1"
-    consumer:
-      group-id: issuance-worker
-      # 부하 테스트/로컬 편의용. 운영에서는 "latest" 또는 "none" 으로 바꿀 것.
-      # (현재 KafkaConfig 가 ConsumerFactory 를 직접 만들기 때문에 이 값은 사실상
-      # 미사용이지만, 의도를 yaml 에도 남겨둔다.)
-      auto-offset-reset: earliest
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      # ErrorHandlingDeserializer 로 감싸야 깨진 payload 가 DLT 로 정상 격리된다.
-      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
-      properties:
-        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
-        spring.json.trusted.packages: "com.apiece.coupon.infrastructure.messaging"
-        spring.json.value.default.type: com.apiece.coupon.infrastructure.messaging.IssuanceRequested
-    listener:
-      ack-mode: record
 
 logging:
   level:
