@@ -3,7 +3,6 @@ package com.apiece.coupon.application
 import com.apiece.coupon.api.dto.CreateCouponRequest
 import com.apiece.coupon.domain.Coupon
 import com.apiece.coupon.domain.CouponRepository
-import com.apiece.coupon.infrastructure.cache.CacheProperties
 import com.apiece.coupon.infrastructure.messaging.IssuanceRequestProducer
 import com.apiece.coupon.infrastructure.messaging.IssuanceRequested
 import com.apiece.coupon.support.AlreadyIssuedException
@@ -16,7 +15,6 @@ import io.mockk.slot
 import io.mockk.verify
 import org.junit.jupiter.api.Test
 import java.time.LocalDateTime
-import java.util.Optional
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
@@ -24,16 +22,10 @@ import kotlin.test.assertNull
 class CouponServiceTest {
 
     private val couponRepository = mockk<CouponRepository>(relaxUnitFun = true)
-    private val cacheMetrics = mockk<CacheMetrics>(relaxUnitFun = true)
+    private val couponIssuePolicyReader = mockk<CouponIssuePolicyReader>()
     private val couponIssuer = mockk<CouponIssuer>(relaxUnitFun = true)
     private val producer = mockk<IssuanceRequestProducer>(relaxUnitFun = true)
-    private val service = CouponService(
-        couponRepository,
-        CacheProperties(ttlMs = 10_000L, simulatedLoadLatencyMs = 0L),
-        cacheMetrics,
-        couponIssuer,
-        producer,
-    )
+    private val service = CouponService(couponRepository, couponIssuePolicyReader, couponIssuer, producer)
 
     @Test
     fun `행사 생성하면 Redis 재고 키 초기화`() {
@@ -48,9 +40,8 @@ class CouponServiceTest {
 
     @Test
     fun `발급 성공시 Kafka 로 IssuanceRequested publish + id 없는 Issuance 반환`() {
-        val coupon = coupon(id = 1L, totalQuantity = 10, validityDays = 7)
         val captured = slot<IssuanceRequested>()
-        every { couponRepository.findById(1L) } returns Optional.of(coupon)
+        every { couponIssuePolicyReader.get(1L) } returns CouponIssuePolicy(startsAt = null, validityDays = 7)
         every { producer.publish(capture(captured)) } returns Unit
 
         val result = service.issue(1L, 42L)
@@ -66,20 +57,20 @@ class CouponServiceTest {
 
     @Test
     fun `행사 없으면 CouponNotFoundException`() {
-        every { couponRepository.findById(99L) } returns Optional.empty()
+        every { couponIssuePolicyReader.get(99L) } throws CouponNotFoundException()
         assertFailsWith<CouponNotFoundException> { service.issue(99L, 42L) }
     }
 
     @Test
     fun `시작 시각 전이면 NotStartedException`() {
         val future = LocalDateTime.now().plusDays(1)
-        every { couponRepository.findById(1L) } returns Optional.of(coupon(id = 1L, startsAt = future))
+        every { couponIssuePolicyReader.get(1L) } returns CouponIssuePolicy(startsAt = future, validityDays = 7)
         assertFailsWith<NotStartedException> { service.issue(1L, 42L) }
     }
 
     @Test
     fun `Issuer 가 SoldOutException 을 던지면 그대로 전파 (publish 없음)`() {
-        every { couponRepository.findById(1L) } returns Optional.of(coupon(id = 1L))
+        every { couponIssuePolicyReader.get(1L) } returns CouponIssuePolicy(startsAt = null, validityDays = 7)
         every { couponIssuer.tryIssue(1L, 42L) } throws SoldOutException()
 
         assertFailsWith<SoldOutException> { service.issue(1L, 42L) }
@@ -88,7 +79,7 @@ class CouponServiceTest {
 
     @Test
     fun `Issuer 가 AlreadyIssuedException 을 던지면 그대로 전파`() {
-        every { couponRepository.findById(1L) } returns Optional.of(coupon(id = 1L))
+        every { couponIssuePolicyReader.get(1L) } returns CouponIssuePolicy(startsAt = null, validityDays = 7)
         every { couponIssuer.tryIssue(1L, 42L) } throws AlreadyIssuedException()
         assertFailsWith<AlreadyIssuedException> { service.issue(1L, 42L) }
     }
