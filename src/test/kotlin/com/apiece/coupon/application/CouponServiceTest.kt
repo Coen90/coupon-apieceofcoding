@@ -3,6 +3,7 @@ package com.apiece.coupon.application
 import com.apiece.coupon.api.dto.CreateCouponRequest
 import com.apiece.coupon.domain.Coupon
 import com.apiece.coupon.domain.CouponRepository
+import com.apiece.coupon.infrastructure.cache.CacheProperties
 import com.apiece.coupon.infrastructure.messaging.IssuanceRequestProducer
 import com.apiece.coupon.infrastructure.messaging.IssuanceRequested
 import com.apiece.coupon.support.AlreadyIssuedException
@@ -23,9 +24,16 @@ import kotlin.test.assertNull
 class CouponServiceTest {
 
     private val couponRepository = mockk<CouponRepository>(relaxUnitFun = true)
+    private val cacheMetrics = mockk<CacheMetrics>(relaxUnitFun = true)
     private val couponIssuer = mockk<CouponIssuer>(relaxUnitFun = true)
     private val producer = mockk<IssuanceRequestProducer>(relaxUnitFun = true)
-    private val service = CouponService(couponRepository, couponIssuer, producer)
+    private val service = CouponService(
+        couponRepository,
+        CacheProperties(ttlMs = 10_000L, simulatedLoadLatencyMs = 0L),
+        cacheMetrics,
+        couponIssuer,
+        producer,
+    )
 
     @Test
     fun `행사 생성하면 Redis 재고 키 초기화`() {

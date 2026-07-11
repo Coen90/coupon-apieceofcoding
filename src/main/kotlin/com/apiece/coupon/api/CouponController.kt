@@ -3,11 +3,9 @@ package com.apiece.coupon.api
 import com.apiece.coupon.api.dto.CouponResponse
 import com.apiece.coupon.api.dto.CreateCouponRequest
 import com.apiece.coupon.api.dto.IssuanceResponse
-import com.apiece.coupon.application.CouponQueryService
 import com.apiece.coupon.application.CouponService
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -19,7 +17,6 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/api/coupons")
 class CouponController(
     private val couponService: CouponService,
-    private val couponQueryService: CouponQueryService,
 ) {
 
     @PostMapping
@@ -27,10 +24,6 @@ class CouponController(
         val coupon = couponService.createCoupon(request)
         return ResponseEntity.status(HttpStatus.CREATED).body(CouponResponse.from(coupon))
     }
-
-    @GetMapping("/{couponId}")
-    fun get(@PathVariable couponId: Long): CouponResponse =
-        couponQueryService.get(couponId)
 
     @PostMapping("/{couponId}/issue")
     fun issue(

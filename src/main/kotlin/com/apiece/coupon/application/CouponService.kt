@@ -4,6 +4,7 @@ import com.apiece.coupon.api.dto.CreateCouponRequest
 import com.apiece.coupon.domain.Coupon
 import com.apiece.coupon.domain.CouponRepository
 import com.apiece.coupon.domain.Issuance
+import com.apiece.coupon.infrastructure.cache.CacheProperties
 import com.apiece.coupon.infrastructure.messaging.IssuanceRequestProducer
 import com.apiece.coupon.infrastructure.messaging.IssuanceRequested
 import com.apiece.coupon.support.CouponNotFoundException
@@ -15,6 +16,8 @@ import java.time.LocalDateTime
 @Service
 class CouponService(
     private val couponRepository: CouponRepository,
+    private val cacheProperties: CacheProperties,
+    private val cacheMetrics: CacheMetrics,
     private val couponIssuer: CouponIssuer,
     private val issuanceRequestProducer: IssuanceRequestProducer,
 ) {
@@ -34,6 +37,10 @@ class CouponService(
     }
 
     fun issue(couponId: Long, userId: Long): Issuance {
+        cacheMetrics.incrementCouponDbRead()
+        if (cacheProperties.simulatedLoadLatencyMs > 0) {
+            Thread.sleep(cacheProperties.simulatedLoadLatencyMs)
+        }
         val coupon = couponRepository.findById(couponId)
             .orElseThrow { CouponNotFoundException() }
 

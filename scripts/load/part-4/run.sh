@@ -27,10 +27,10 @@ reset_metrics() {
 
 run_coupon_once() {
   local label="$1"
-  printf '\n\033[1;36m===== ① 쿠폰 조회 폭증: %s =====\033[0m\n' "$label"
+  printf '\n\033[1;36m===== ① 발급 API 정책 조회 요청 급증: %s =====\033[0m\n' "$label"
   ./scripts/load/reset.sh
   local coupon_id
-  coupon_id=$(./scripts/load/create_coupon.sh)
+  coupon_id=$(./scripts/load/part-4/create_issue_policy_coupon.sh)
   reset_metrics
   # threshold (p99<200) 깨지는 게 4-0 ~ 4-1b 에서 정상. SWR (4-1c) 에서 통과.
   k6 run -e COUPON_ID="$coupon_id" scripts/load/part-4/coupon_burst.js || true
