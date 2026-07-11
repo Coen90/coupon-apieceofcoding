@@ -28,6 +28,7 @@ class CouponCacheRepository(
     }
 
     private val lookupScript = listLuaScript("lua/cache-swr-lookup.lua")
+    private val releaseLockScript = longLuaScript("lua/release-lock.lua")
 
     fun getIssuePolicyOrLoad(id: Long, loader: () -> CouponIssuePolicy): CouponIssuePolicy =
         getOrLoad(
@@ -59,14 +60,14 @@ class CouponCacheRepository(
                     cacheMetrics.incrementCouponCacheHit()
                     backgroundExecutor.execute {
                         try {
-                            fillCache(cacheKey, lockKey, loader)
+                            fillCache(cacheKey, lockKey, token, loader)
                         } catch (e: Exception) {
                             log.warn { "백그라운드 SWR 갱신 실패 (key=$cacheKey): ${e.message}" }
                         }
                     }
                     return mapper.readValue(result[1], CouponIssuePolicy::class.java)
                 }
-                "LOAD" -> return fillCache(cacheKey, lockKey, loader)
+                "LOAD" -> return fillCache(cacheKey, lockKey, token, loader)
                 "WAIT" -> Thread.sleep(WAIT_BACKOFF_MS)
             }
         }
@@ -76,6 +77,7 @@ class CouponCacheRepository(
     private fun fillCache(
         cacheKey: String,
         lockKey: String,
+        token: String,
         loader: () -> CouponIssuePolicy,
     ): CouponIssuePolicy {
         try {
@@ -91,7 +93,11 @@ class CouponCacheRepository(
             redis.expire(cacheKey, properties.ttlMs, TimeUnit.MILLISECONDS)
             return response
         } finally {
-            redis.delete(lockKey)
+            redis.runForLong(
+                releaseLockScript,
+                listOf(lockKey),
+                token,
+            )
         }
     }
 
