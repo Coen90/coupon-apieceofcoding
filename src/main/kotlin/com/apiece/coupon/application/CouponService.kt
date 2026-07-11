@@ -38,9 +38,7 @@ class CouponService(
 
     fun issue(couponId: Long, userId: Long): Issuance {
         cacheMetrics.incrementCouponDbRead()
-        if (cacheProperties.simulatedLoadLatencyMs > 0) {
-            Thread.sleep(cacheProperties.simulatedLoadLatencyMs)
-        }
+        Thread.sleep(cacheProperties.simulatedLoadLatencyMs)
         val coupon = couponRepository.findById(couponId)
             .orElseThrow { CouponNotFoundException() }
 

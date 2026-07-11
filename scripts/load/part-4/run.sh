@@ -25,7 +25,7 @@ reset_metrics() {
   curl -fsS -X POST http://localhost:8080/metrics/cache/reset >/dev/null
 }
 
-run_coupon_once() {
+run_policy_once() {
   local label="$1"
   printf '\n\033[1;36m===== ① 발급 API 쿠폰 정보 조회 요청 급증: %s =====\033[0m\n' "$label"
   ./scripts/load/reset.sh
@@ -50,12 +50,12 @@ run_sellout_once() {
   printf '\n\033[1;33m카운터: \033[0m%s\n' "$(read_metrics)"
 }
 
-run_coupon() {
+run_policy() {
   if $WARMUP; then
-    run_coupon_once "워밍업 1/2"
-    run_coupon_once "본 측정 2/2 (steady-state)"
+    run_policy_once "워밍업 1/2"
+    run_policy_once "본 측정 2/2 (steady-state)"
   else
-    run_coupon_once "본 측정 1/1"
+    run_policy_once "본 측정 1/1"
   fi
 }
 
@@ -69,8 +69,8 @@ run_sellout() {
 }
 
 case "$SCENARIOS" in
-  policy|coupon) run_coupon ;;
+  policy) run_policy ;;
   sellout) run_sellout ;;
-  all) run_coupon; run_sellout ;;
+  all) run_policy; run_sellout ;;
   *) printf 'unknown scenario: %s (policy | sellout | all)\n' "$SCENARIOS"; exit 1 ;;
 esac
