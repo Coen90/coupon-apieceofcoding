@@ -97,10 +97,10 @@ scripts/load/part-3/kafka_dlt_peek.sh         # DLT 격리 확인
 
 | 단계                        | 측정 핵심                                          |
 | ------------------------- | ---------------------------------------------- |
-| `part-4-0-load-test`      | 베이스라인. issue API 정책 조회가 모두 DB 직격, 매진 후 120,000 회 모두 Lua 도달 |
-| `part-4-1a-cache-naive`   | issue 정책 캐시로 DB 도달 감소, TTL 만료 시 stampede 관찰 |
-| `part-4-1b-single-flight` | 동시 정책 miss를 한 번의 DB 조회로 합침 |
-| `part-4-1c-swr`           | 오래된 정책을 먼저 응답하고 DB 갱신은 백그라운드 처리 |
-| `part-4-2-sold-out-signal` | soldOutFastPathHits 119,968 / Redis EXISTS 30 (4000 배 ↓) |
+| `part-4-0-load-test`      | 정책 DB 도달 15,001 / 정책 캐시 hit 0 |
+| `part-4-1a-cache-naive`   | 정책 DB 도달 1,349 / 정책 캐시 hit 13,651, TTL stampede 관찰 |
+| `part-4-1b-single-flight` | 정책 DB 도달 28 / 정책 캐시 hit 14,973 |
+| `part-4-1c-swr`           | 정책 DB 도달 50 / 정책 캐시 hit 15,000, 갱신은 백그라운드 |
+| `part-4-2-sold-out-signal` | soldOutFastPathHits 120,001 / Redis EXISTS 30 |
 
-자세한 시나리오 정의와 결과 해석은 [4단원 design](../../../../materials/domain/04-coupon-cache-and-signal-design.md) 6.3 결과 표.
+자세한 시나리오 정의와 결과 해석은 [4단원 design](../../../../materials/domain/04-coupon-cache-and-signal-design.md) 7.2 결과 표.

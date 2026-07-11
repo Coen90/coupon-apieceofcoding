@@ -14,13 +14,13 @@ import { Trend, Counter } from 'k6/metrics';
 const COUPON_ID = __ENV.COUPON_ID || '1';
 const BASE = __ENV.BASE_URL || 'http://localhost:8080';
 
-const couponLatency = new Trend('coupon_latency', true);
+const issuePolicyLatency = new Trend('issue_policy_latency', true);
 const status2xx = new Counter('status_2xx');
 const statusOther = new Counter('status_other');
 
 export const options = {
   scenarios: {
-    coupon_burst: {
+    issue_policy_burst: {
       executor: 'constant-arrival-rate',
       rate: 500, timeUnit: '1s', duration: '30s',  // 500 req/s × 30s = 15,000 회
       preAllocatedVUs: 500, maxVUs: 1000,
@@ -29,7 +29,7 @@ export const options = {
   // single-flight 도입 (4-1b) 이후엔 stampede 윈도우 안의 P99 가 여전히 튀므로
   // threshold 깨지는 게 정상. SWR (4-1c) 에서 통과.
   thresholds: {
-    'coupon_latency': ['p(99)<200'],
+    'issue_policy_latency': ['p(99)<200'],
   },
 };
 
@@ -38,7 +38,7 @@ export default function () {
   const res = http.post(`${BASE}/api/coupons/${COUPON_ID}/issue`, null, {
     headers: { 'X-User-Id': userId },
   });
-  couponLatency.add(res.timings.duration);
+  issuePolicyLatency.add(res.timings.duration);
   if (res.status >= 200 && res.status < 300) status2xx.add(1);
   else statusOther.add(1);
 }
