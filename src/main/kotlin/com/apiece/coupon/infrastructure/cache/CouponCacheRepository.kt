@@ -7,10 +7,10 @@ import jakarta.annotation.PreDestroy
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.stereotype.Repository
 import tools.jackson.databind.ObjectMapper
+import java.time.Duration
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 
 private val log = KotlinLogging.logger {}
 
@@ -90,7 +90,7 @@ class CouponCacheRepository(
                     "fetchedAtMs" to Instant.now().toEpochMilli().toString(),
                 ),
             )
-            redis.expire(cacheKey, properties.ttlMs, TimeUnit.MILLISECONDS)
+            redis.expire(cacheKey, Duration.ofMillis(properties.ttlMs))
             return response
         } finally {
             redis.runForLong(
