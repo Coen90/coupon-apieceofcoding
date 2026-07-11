@@ -13,7 +13,7 @@ import java.time.Duration
 class SoldOutState(
     private val soldOutRedisRepository: SoldOutRedisRepository,
     private val cacheMetrics: CacheMetrics,
-    private val properties: SoldOutProperties,
+    properties: SoldOutProperties,
 ) {
 
     private val cache: LoadingCache<Long, Boolean> = Caffeine.newBuilder()
