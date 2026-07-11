@@ -3,9 +3,9 @@
 #
 # 사용:
 #   ./scripts/load/part-4/run.sh             # 두 시나리오 모두 실행 (워밍업 + 본 측정)
-#   ./scripts/load/part-4/run.sh coupon      # ① 쿠폰 조회 폭증만
+#   ./scripts/load/part-4/run.sh policy      # ① 발급 API 정책 조회 요청 급증만
 #   ./scripts/load/part-4/run.sh sellout     # ② 매진 후 새로고침만
-#   ./scripts/load/part-4/run.sh --once coupon # 워밍업 생략
+#   ./scripts/load/part-4/run.sh --once policy # 워밍업 생략
 #
 # 핵심: 서비스 프로세스는 띄운 채로 두고 회차 사이에 reset.sh 로 DB/Redis 만 비운다.
 
@@ -69,8 +69,8 @@ run_sellout() {
 }
 
 case "$SCENARIOS" in
-  coupon) run_coupon ;;
+  policy|coupon) run_coupon ;;
   sellout) run_sellout ;;
   all) run_coupon; run_sellout ;;
-  *) printf 'unknown scenario: %s (coupon | sellout | all)\n' "$SCENARIOS"; exit 1 ;;
+  *) printf 'unknown scenario: %s (policy | sellout | all)\n' "$SCENARIOS"; exit 1 ;;
 esac
