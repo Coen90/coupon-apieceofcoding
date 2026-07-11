@@ -17,6 +17,7 @@ class CouponCacheRepository(
 ) {
 
     private val singleFlightScript = listLuaScript("lua/cache-single-flight.lua")
+    private val releaseLockScript = longLuaScript("lua/release-lock.lua")
 
     fun getIssuePolicyOrLoad(id: Long, loader: () -> CouponIssuePolicy): CouponIssuePolicy =
         getOrLoad(
@@ -50,7 +51,11 @@ class CouponCacheRepository(
                     redis.opsForValue().set(cacheKey, json, Duration.ofMillis(properties.ttlMs))
                     response
                 } finally {
-                    redis.delete(lockKey)
+                    redis.runForLong(
+                        releaseLockScript,
+                        listOf(lockKey),
+                        token,
+                    )
                 }
                 "WAIT" -> Thread.sleep(WAIT_BACKOFF_MS)
             }
