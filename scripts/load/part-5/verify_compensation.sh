@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# part-5-1 검증: 실패 보관함(DLT) 자동 보상 + 보상 멱등성 + 매진 직후 보상 (5단원 7).
+# part-5-1 검증: DLT 운영자 보상 + 보상 멱등성 + 매진 직후 보상 (5단원 7).
 # 사전: docker compose 스택 + coupon-service(part-5-1 이미지) 가 떠 있어야 한다.
 
 set -euo pipefail
 cd "$(dirname "$0")/../../.."
 source ./scripts/load/part-5/_common.sh
 COUNT="${COUNT:-10}"
+USER_BASE="${USER_BASE:-900000}"
 
 comp_metric() { curl -fsS "$BASE/metrics/compensation" | jq -r ".$1"; }
 
@@ -18,19 +19,22 @@ wait_issued_row() { # couponId userId [timeout=30]
 }
 
 ############################################
-printf '\n\033[1;35m##### 1단계: 실패 보관함(DLT)에 쌓인 발급 %s건을 보상으로 자동으로 되돌리기 #####\033[0m\n' "$COUNT"
+printf '\n\033[1;35m##### 1단계: DLT를 확인한 운영자가 발급 %s건을 보상하기 #####\033[0m\n' "$COUNT"
 ./scripts/load/reset.sh >/dev/null
-restart_service              # kafka 비우고 보상 처리기가 처음부터 다시 읽도록 재기동
+restart_service              # kafka를 비우고 DLT를 새로 만든다
 curl -fsS -X POST "$BASE/metrics/compensation/reset" >/dev/null
 CID=$(./scripts/load/create_coupon.sh)
 printf '만든 쿠폰 번호 = %s\n' "$CID"
 
 COUPON_ID="$CID" COUNT="$COUNT" ./scripts/load/part-5/force_dlt.sh
 
-printf '보상 처리기가 %s건을 다 되돌릴 때까지 기다리는 중...\n' "$COUNT"
-for _ in $(seq 1 60); do
-  [[ "$(comp_metric compensationTotal)" == "$COUNT" ]] && break
-  sleep 1
+printf 'DLT를 확인했다고 가정하고 operationId별 수동 보상을 실행하는 중...\n'
+for i in $(seq 1 "$COUNT"); do
+  uid=$((USER_BASE + i))
+  operation_id="$(redis_cli GET "coupon:$CID:operation:$uid")"
+  curl -fsS -X POST "$BASE/admin/compensate" \
+    -H 'Content-Type: application/json' \
+    -d "{\"couponId\":$CID,\"userId\":$uid,\"operationId\":\"$operation_id\"}" >/dev/null
 done
 COUPON_ID="$CID" ./scripts/load/part-5/drift_report.sh
 
