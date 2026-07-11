@@ -27,7 +27,7 @@ class CouponCacheRepository(
         Thread(r, "coupon-cache-swr-refresh").apply { isDaemon = true }
     }
 
-    private val lookupScript = listLuaScript("lua/cache-swr-lookup.lua")
+    private val lookupScript = listLuaScript("lua/cache-single-flight-swr.lua")
     private val releaseLockScript = longLuaScript("lua/release-lock.lua")
 
     fun getIssuePolicyOrLoad(id: Long, loader: () -> CouponIssuePolicy): CouponIssuePolicy =
