@@ -11,9 +11,9 @@ import java.time.Duration
 // fast-path TTL 동안 실제 매진을 아직 모르는 요청은 Lua 가 0 으로 최종 거절해서 잡아낸다.
 @Component
 class SoldOutState(
-    soldOutRedisRepository: SoldOutRedisRepository,
+    private val soldOutRedisRepository: SoldOutRedisRepository,
     private val cacheMetrics: CacheMetrics,
-    properties: SoldOutProperties,
+    private val properties: SoldOutProperties,
 ) {
 
     private val cache: LoadingCache<Long, Boolean> = Caffeine.newBuilder()
