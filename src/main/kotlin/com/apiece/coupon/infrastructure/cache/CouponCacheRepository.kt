@@ -6,6 +6,7 @@ import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.stereotype.Repository
 import tools.jackson.databind.ObjectMapper
 import java.time.Duration
+import java.util.UUID
 
 @Repository
 class CouponCacheRepository(
@@ -15,23 +16,55 @@ class CouponCacheRepository(
     private val cacheMetrics: CacheMetrics,
 ) {
 
+    private val singleFlightScript = listLuaScript("lua/cache-single-flight.lua")
+
     fun getIssuePolicyOrLoad(id: Long, loader: () -> CouponIssuePolicy): CouponIssuePolicy =
         getOrLoad(
-            key = "coupon:$id:issue-policy",
+            cacheKey = "coupon:$id:issue-policy",
+            lockKey = "coupon:$id:issue-policy:lock",
+            fallbackKey = "coupon:$id:issue-policy:fallback",
             loader = loader,
         )
 
     private fun getOrLoad(
-        key: String,
+        cacheKey: String,
+        lockKey: String,
+        fallbackKey: String,
         loader: () -> CouponIssuePolicy,
     ): CouponIssuePolicy {
-        redis.opsForValue().get(key)?.let { cached ->
-            cacheMetrics.incrementCouponCacheHit()
-            return mapper.readValue(cached, CouponIssuePolicy::class.java)
+        val token = UUID.randomUUID().toString()
+        repeat(MAX_RETRIES) {
+            val result = redis.runForStrings(
+                singleFlightScript,
+                listOf(cacheKey, lockKey, fallbackKey),
+                token, LOCK_TTL_MS,
+            )
+
+            when (result[0]) {
+                "HIT", "WAIT_FALLBACK" -> {
+                    cacheMetrics.incrementCouponCacheHit()
+                    return mapper.readValue(result[1], CouponIssuePolicy::class.java)
+                }
+                "LOAD" -> return try {
+                    cacheMetrics.incrementCouponDbRead()
+                    val response = loader()
+                    val json = mapper.writeValueAsString(response)
+                    redis.opsForValue().set(cacheKey, json, Duration.ofMillis(properties.ttlMs))
+                    redis.opsForValue().set(fallbackKey, json, Duration.ofMillis(properties.ttlMs * FALLBACK_TTL_MULTIPLIER))
+                    response
+                } finally {
+                    redis.delete(lockKey)
+                }
+                "WAIT_MISS" -> Thread.sleep(WAIT_BACKOFF_MS)
+            }
         }
-        cacheMetrics.incrementCouponDbRead()
-        val response = loader()
-        redis.opsForValue().set(key, mapper.writeValueAsString(response), Duration.ofMillis(properties.ttlMs))
-        return response
+        throw IllegalStateException("쿠폰 캐시 채우기 timeout (key=$cacheKey)")
+    }
+
+    private companion object {
+        const val MAX_RETRIES = 50
+        const val WAIT_BACKOFF_MS = 20L
+        const val LOCK_TTL_MS = 3_000L
+        const val FALLBACK_TTL_MULTIPLIER = 60L
     }
 }
