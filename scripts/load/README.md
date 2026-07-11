@@ -14,8 +14,8 @@ scripts/load/
 │   ├── kafka_lag.sh              # (3-2c) Consumer lag
 │   └── kafka_dlt_peek.sh         # (3-2c) DLT 토픽 확인
 └── part-4/                       # 캐시 + 매진 시그널
-    ├── coupon_burst.js           # 500 req/s 30s issue API 정책 조회
-    ├── create_issue_policy_coupon.sh # 시작 전 정책 조회 실험용 쿠폰
+    ├── coupon_burst.js           # 500 req/s 30s issue API 쿠폰 정보 조회
+    ├── create_issue_policy_coupon.sh # 시작 전 쿠폰 정보 실험용 쿠폰
     ├── post_sellout_refresh.js   # 매진 후 4000 req/s 30s 발급 폭주
     ├── create_small_coupon.sh    # 재고 100 쿠폰
     ├── sell_out.sh               # 100명 발급으로 매진
@@ -88,7 +88,7 @@ scripts/load/part-3/kafka_dlt_peek.sh         # DLT 격리 확인
 
 ```bash
 ./scripts/load/part-4/run.sh           # 두 시나리오 모두 (워밍업 + 본 측정)
-./scripts/load/part-4/run.sh policy    # ① issue API 정책 조회 요청 급증만 (500 req/s × 30s)
+./scripts/load/part-4/run.sh policy    # ① issue API 쿠폰 정보 조회 요청 급증만 (500 req/s × 30s)
 ./scripts/load/part-4/run.sh sellout   # ② 매진 후 새로고침만 (4000 req/s × 30s)
 ./scripts/load/part-4/run.sh --once policy   # 워밍업 생략
 ```
@@ -97,10 +97,10 @@ scripts/load/part-3/kafka_dlt_peek.sh         # DLT 격리 확인
 
 | 단계                        | 측정 핵심                                          |
 | ------------------------- | ---------------------------------------------- |
-| `part-4-0-load-test`      | 정책 DB 도달 15,001 / 정책 캐시 hit 0 |
-| `part-4-1a-cache-naive`   | 정책 DB 도달 1,349 / 정책 캐시 hit 13,651, TTL stampede 관찰 |
-| `part-4-1b-single-flight` | 정책 DB 도달 28 / 정책 캐시 hit 14,973 |
-| `part-4-1c-swr`           | 정책 DB 도달 50 / 정책 캐시 hit 15,000, 갱신은 백그라운드 |
+| `part-4-0-load-test`      | 쿠폰 정보 DB 도달 15,001 / 쿠폰 정보 캐시 hit 0 |
+| `part-4-1a-cache-naive`   | 쿠폰 정보 DB 도달 1,349 / 쿠폰 정보 캐시 hit 13,651, TTL stampede 관찰 |
+| `part-4-1b-single-flight` | 쿠폰 정보 DB 도달 28 / 쿠폰 정보 캐시 hit 14,973 |
+| `part-4-1c-swr`           | 쿠폰 정보 DB 도달 50 / 쿠폰 정보 캐시 hit 15,000, 갱신은 백그라운드 |
 | `part-4-2-sold-out-signal` | soldOutFastPathHits 120,001 / Redis EXISTS 30 |
 
 자세한 시나리오 정의와 결과 해석은 [4단원 design](../../../../materials/domain/04-coupon-cache-and-signal-design.md) 7.2 결과 표.

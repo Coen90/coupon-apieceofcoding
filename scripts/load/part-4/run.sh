@@ -3,7 +3,7 @@
 #
 # 사용:
 #   ./scripts/load/part-4/run.sh             # 두 시나리오 모두 실행 (워밍업 + 본 측정)
-#   ./scripts/load/part-4/run.sh policy      # ① 발급 API 정책 조회 요청 급증만
+#   ./scripts/load/part-4/run.sh policy      # ① 발급 API 쿠폰 정보 조회 요청 급증만
 #   ./scripts/load/part-4/run.sh sellout     # ② 매진 후 새로고침만
 #   ./scripts/load/part-4/run.sh --once policy # 워밍업 생략
 #
@@ -27,7 +27,7 @@ reset_metrics() {
 
 run_coupon_once() {
   local label="$1"
-  printf '\n\033[1;36m===== ① 발급 API 정책 조회 요청 급증: %s =====\033[0m\n' "$label"
+  printf '\n\033[1;36m===== ① 발급 API 쿠폰 정보 조회 요청 급증: %s =====\033[0m\n' "$label"
   ./scripts/load/reset.sh
   local coupon_id
   coupon_id=$(./scripts/load/part-4/create_issue_policy_coupon.sh)

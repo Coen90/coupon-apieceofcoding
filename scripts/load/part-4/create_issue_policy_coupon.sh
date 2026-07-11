@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# 발급 정책 조회 캐시 실험용 쿠폰을 만들고 ID를 출력한다.
-# 시작 시각을 미래로 설정해 issue API가 정책 조회 후 NotStarted로 끝나도록 한다.
+# 쿠폰 정보 캐시 실험용 쿠폰을 만들고 ID를 출력한다.
+# 시작 시각을 미래로 설정해 issue API가 쿠폰 정보 조회 후 NotStarted로 끝나도록 한다.
 
 set -euo pipefail
 
