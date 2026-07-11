@@ -19,13 +19,13 @@ class CompensationService(
         try {
             transactionalWriter.applyDbStep(command)
         } catch (e: DataIntegrityViolationException) {
-            log.debug { "compensation_log PK 충돌, Redis 단계로 진행: ${command.compensationId}" }
+            log.debug { "compensation_log PK 충돌, Redis 단계로 진행: ${command.operationId}" }
         }
 
         // DB 멱등이어도 Redis 는 항상 호출한다. 부분 실패(DB 만 커밋)를 재시도 때 완결하기 위함이며,
         // Lua 의 2차 멱등 키가 진짜 중복은 0 으로 흡수한다.
         val compensated = compensationRedisRepository.compensate(
-            command.couponId, command.userId, command.compensationId,
+            command.couponId, command.userId, command.operationId,
         ) == 1L
         if (compensated) metrics.incrementCompensated() else metrics.incrementIdempotentHit()
         return compensated

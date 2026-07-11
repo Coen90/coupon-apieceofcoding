@@ -19,22 +19,22 @@ class CompensationServiceTest {
     private val metrics = mockk<CompensationMetrics>(relaxUnitFun = true)
     private val service = CompensationService(writer, redis, metrics)
 
-    private fun command(id: String = "dlt:t:0:1") = CompensationCommand(
+    private fun command(id: String = "operation-1") = CompensationCommand(
         couponId = 1L,
         userId = 42L,
-        compensationId = id,
+        operationId = id,
         reason = CompensationReason.DLT_REPLAY,
     )
 
     @Test
     fun `처음 보는 보상이면 Redis 역연산 실행 (Lua 1 반환) + compensation_total 증가`() {
         every { writer.applyDbStep(any()) } just Runs
-        every { redis.compensate(1L, 42L, "dlt:t:0:1") } returns 1L // 실제 보상
+        every { redis.compensate(1L, 42L, "operation-1") } returns 1L // 실제 보상
 
         val result = service.compensate(command())
 
         assertTrue(result)
-        verify(exactly = 1) { redis.compensate(1L, 42L, "dlt:t:0:1") }
+        verify(exactly = 1) { redis.compensate(1L, 42L, "operation-1") }
         verify(exactly = 1) { metrics.incrementCompensated() }
         verify(exactly = 0) { metrics.incrementIdempotentHit() }
     }
@@ -47,7 +47,7 @@ class CompensationServiceTest {
         val result = service.compensate(command())
 
         assertFalse(result)
-        verify(exactly = 1) { redis.compensate(1L, 42L, "dlt:t:0:1") } // skip 하지 않는다
+        verify(exactly = 1) { redis.compensate(1L, 42L, "operation-1") } // skip 하지 않는다
         verify(exactly = 1) { metrics.incrementIdempotentHit() }
         verify(exactly = 0) { metrics.incrementCompensated() }
     }
@@ -61,7 +61,7 @@ class CompensationServiceTest {
         val result = service.compensate(command())
 
         assertTrue(result) // DB 멱등이어도 Redis 가 비로소 실행됨
-        verify(exactly = 1) { redis.compensate(1L, 42L, "dlt:t:0:1") }
+        verify(exactly = 1) { redis.compensate(1L, 42L, "operation-1") }
         verify(exactly = 1) { metrics.incrementCompensated() }
     }
 
@@ -73,7 +73,7 @@ class CompensationServiceTest {
         val result = service.compensate(command())
 
         assertFalse(result)
-        verify(exactly = 1) { redis.compensate(1L, 42L, "dlt:t:0:1") }
+        verify(exactly = 1) { redis.compensate(1L, 42L, "operation-1") }
         verify(exactly = 1) { metrics.incrementIdempotentHit() }
     }
 }

@@ -45,7 +45,8 @@ TEST_UID=12345
 curl -fsS -X POST "$BASE/api/coupons/$CID/issue" -H "X-User-Id: $TEST_UID" >/dev/null
 wait_issued_row "$CID" "$TEST_UID" || ng "발급이 DB 에 기록되길 기다리다 실패"
 stock_before="$(redis_cli GET "coupon:$CID:stock")"
-body="{\"couponId\":$CID,\"userId\":$TEST_UID,\"compensationId\":\"manual-idem-$CID\"}"
+operation_id="$(mysql_scalar "SELECT operation_id FROM issuance WHERE coupon_id=$CID AND user_id=$TEST_UID")"
+body="{\"couponId\":$CID,\"userId\":$TEST_UID,\"operationId\":\"$operation_id\"}"
 r1=$(curl -fsS -X POST "$BASE/admin/compensate" -H 'Content-Type: application/json' -d "$body" | jq -r '.compensated')
 r2=$(curl -fsS -X POST "$BASE/admin/compensate" -H 'Content-Type: application/json' -d "$body" | jq -r '.compensated')
 check "첫 호출은 실제로 되돌림" "$r1" "true"
@@ -64,7 +65,7 @@ check "발급 직후 '매진' 표시됨" "$(redis_cli EXISTS "coupon:$SCID:sold_
 check "발급 직후 재고 0" "$(redis_cli GET "coupon:$SCID:stock")" "0"
 
 curl -fsS -X POST "$BASE/admin/compensate" -H 'Content-Type: application/json' \
-  -d "{\"couponId\":$SCID,\"userId\":1,\"compensationId\":\"manual-sellout-$SCID\"}" >/dev/null
+  -d "{\"couponId\":$SCID,\"userId\":1,\"operationId\":\"$(mysql_scalar "SELECT operation_id FROM issuance WHERE coupon_id=$SCID AND user_id=1")\"}" >/dev/null
 check "보상 후 '매진' 표시 풀림" "$(redis_cli EXISTS "coupon:$SCID:sold_out")" "0"
 check "보상 후 재고 1장 복구" "$(redis_cli GET "coupon:$SCID:stock")" "1"
 check "매진 풀린 뒤 새 사용자 발급 성공(200)" \

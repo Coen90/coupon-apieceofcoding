@@ -25,13 +25,12 @@ class Compensator(
             return
         }
 
-        // compensationId 는 DLT 메시지의 위치로 고정 (재투입/중복 폴링에도 같은 사건 = 같은 키).
-        val compensationId = "dlt:${record.topic()}:${record.partition()}:${record.offset()}"
+        // DLT 위치가 아닌 원본 발급 operationId를 쓴다. 재투입해도 같은 발급은 같은 키다.
         compensationService.compensate(
             CompensationCommand(
                 couponId = event.couponId,
                 userId = event.userId,
-                compensationId = compensationId,
+                operationId = event.operationId,
                 reason = CompensationReason.DLT_REPLAY,
                 issuedAt = event.issuedAt,
                 expiresAt = event.expiresAt,

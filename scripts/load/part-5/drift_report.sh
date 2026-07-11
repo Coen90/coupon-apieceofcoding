@@ -63,7 +63,7 @@ elif (( db_gap > 0 && list_gap == 0 )); then
   printf '         2) 일시적 실패(DB 잠깐 장애 등)면 → 재처리: 그 발급을 DB 에 다시 저장해 사용자가 쿠폰 유지\n'
   printf '            영구 실패(깨진 데이터, 마감 지남, 정책상 취소)면 → 보상으로 되돌림:\n'
   printf "            curl -X POST localhost:8080/admin/compensate -H 'Content-Type: application/json' \\\\\n"
-  printf '              -d '"'"'{"couponId":%s,"userId":<발급자번호>,"compensationId":"<중복방지 고유키>"}'"'"'\n' "$COUPON_ID"
+  printf '              -d '"'"'{"couponId":%s,"userId":<발급자번호>,"operationId":"<원본 발급 operationId>"}'"'"'\n' "$COUPON_ID"
   printf '            (재고를 1 되돌리고, 발급자 명단에서 빼고, 발급 기록을 취소로 남김)\033[0m\n'
 elif (( db_gap == 0 && list_gap > 0 )); then
   printf '\033[1;33m  => Redis 발급자 명단에서 %s명이 비어 있어요. 명단만 날아간 경우라,\n' "$list_gap"

@@ -21,10 +21,10 @@ class CompensationTransactionalWriter(
 
     @Transactional
     fun applyDbStep(command: CompensationCommand) {
-        if (compensationLogRepository.existsById(command.compensationId)) return
+        if (compensationLogRepository.existsById(command.operationId)) return
 
         val now = LocalDateTime.now()
-        val existing = issuanceRepository.findByUserIdAndCouponId(command.userId, command.couponId)
+        val existing = issuanceRepository.findByOperationId(command.operationId)
         val issuanceId = if (existing != null) {
             if (existing.status == IssuanceStatus.ISSUED) {
                 existing.markCanceled()
@@ -37,6 +37,7 @@ class CompensationTransactionalWriter(
                 Issuance(
                     userId = command.userId,
                     couponId = command.couponId,
+                    operationId = command.operationId,
                     issuedAt = command.issuedAt ?: now,
                     expiresAt = command.expiresAt ?: now,
                     status = IssuanceStatus.CANCELED,
@@ -46,7 +47,7 @@ class CompensationTransactionalWriter(
 
         compensationLogRepository.save(
             CompensationLog(
-                id = command.compensationId,
+                id = command.operationId,
                 issuanceId = issuanceId,
                 compensatedAt = now,
                 reason = command.reason.name,

@@ -32,7 +32,7 @@ class CompensationTransactionalWriterTest {
     private fun command(id: String = "c1") = CompensationCommand(
         couponId = 1L,
         userId = 42L,
-        compensationId = id,
+        operationId = id,
         reason = CompensationReason.DLT_REPLAY,
         issuedAt = LocalDateTime.now(),
         expiresAt = LocalDateTime.now().plusDays(7),
@@ -53,11 +53,12 @@ class CompensationTransactionalWriterTest {
     fun `기존 ISSUED 행 있으면 CANCELED 전이 + issued_quantity 감소`() {
         val issued = Issuance(
             userId = 42L, couponId = 1L,
+            operationId = "c1",
             issuedAt = LocalDateTime.now(), expiresAt = LocalDateTime.now().plusDays(7),
             status = IssuanceStatus.ISSUED, id = 7L,
         )
         every { compensationLogRepository.existsById("c1") } returns false
-        every { issuanceRepository.findByUserIdAndCouponId(42L, 1L) } returns issued
+        every { issuanceRepository.findByOperationId("c1") } returns issued
 
         writer.applyDbStep(command())
 
@@ -73,7 +74,7 @@ class CompensationTransactionalWriterTest {
     @Test
     fun `기존 행 없으면 CANCELED 행 사후 INSERT + issued_quantity 손대지 않음`() {
         every { compensationLogRepository.existsById("c1") } returns false
-        every { issuanceRepository.findByUserIdAndCouponId(42L, 1L) } returns null
+        every { issuanceRepository.findByOperationId("c1") } returns null
         val saveSlot = slot<Issuance>()
         every { issuanceRepository.save(capture(saveSlot)) } answers { saveSlot.captured.apply { id = 99L } }
 
@@ -88,11 +89,12 @@ class CompensationTransactionalWriterTest {
     fun `기존 행이 ISSUED 가 아니면 카운터 감소 없이 보상 기록만`() {
         val used = Issuance(
             userId = 42L, couponId = 1L,
+            operationId = "c1",
             issuedAt = LocalDateTime.now(), expiresAt = LocalDateTime.now().plusDays(7),
             status = IssuanceStatus.USED, id = 8L,
         )
         every { compensationLogRepository.existsById("c1") } returns false
-        every { issuanceRepository.findByUserIdAndCouponId(42L, 1L) } returns used
+        every { issuanceRepository.findByOperationId("c1") } returns used
 
         writer.applyDbStep(command())
 

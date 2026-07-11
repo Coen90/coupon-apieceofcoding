@@ -11,6 +11,7 @@ import jakarta.persistence.Index
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
 import java.time.LocalDateTime
+import java.util.UUID
 
 @Entity
 @Table(
@@ -32,6 +33,9 @@ class Issuance(
 
     @Column(name = "coupon_id", nullable = false)
     var couponId: Long,
+
+    @Column(name = "operation_id", nullable = false, unique = true, length = 36, updatable = false)
+    var operationId: String = UUID.randomUUID().toString(),
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)

@@ -12,11 +12,16 @@ class IssuanceRedisRepository(
     private val issueScript = longLuaScript("lua/issue.lua")
 
     // 반환: 1=성공, 0=매진, -1=중복 발급
-    fun tryIssue(couponId: Long, userId: Long): Long =
+    fun tryIssue(couponId: Long, userId: Long, operationId: String): Long =
         redis.runForLong(
             issueScript,
-            listOf("coupon:$couponId:stock", "coupon:$couponId:users", "coupon:$couponId:sold_out"),
-            userId, soldOutProperties.ttlSeconds,
+            listOf(
+                "coupon:$couponId:stock",
+                "coupon:$couponId:users",
+                "coupon:$couponId:sold_out",
+                "coupon:$couponId:operation:$userId",
+            ),
+            userId, soldOutProperties.ttlSeconds, operationId,
         )
 
     fun initStock(couponId: Long, totalQuantity: Int) {

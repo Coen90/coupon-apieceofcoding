@@ -3,5 +3,5 @@ package com.apiece.coupon.api.dto
 class CompensateRequest(
     val couponId: Long,
     val userId: Long,
-    val compensationId: String,
+    val operationId: String,
 )
