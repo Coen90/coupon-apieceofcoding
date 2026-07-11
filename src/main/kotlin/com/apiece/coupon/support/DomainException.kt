@@ -38,5 +38,8 @@ class CanceledException(message: String = "보상으로 취소된 쿠폰입니�
 class NoWaitingRoomPassException(message: String = "대기실 입장권이 없습니다 (먼저 대기실을 통과하세요)") :
     DomainException("NO_WAITING_ROOM_PASS", HttpStatus.FORBIDDEN, message)
 
+class WaitingRoomNotEnteredException(message: String = "대기실에 먼저 진입해야 합니다") :
+    DomainException("WAITING_ROOM_NOT_ENTERED", HttpStatus.NOT_FOUND, message)
+
 class WaitingRoomUnavailableException(message: String = "대기실 점검 중입니다 (잠시 후 다시 시도해주세요)") :
     DomainException("WAITING_ROOM_UNAVAILABLE", HttpStatus.SERVICE_UNAVAILABLE, message)

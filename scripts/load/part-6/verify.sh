@@ -11,6 +11,7 @@ ng()    { printf '\033[1;31m  ✗ 실패\033[0m %s\n' "$1"; fail=1; }
 check() { if [[ "$2" == "$3" ]]; then pass "$1 ($2)"; else ng "$1 (실제 $2, 기대 $3)"; fi; }
 
 enter() { curl -fsS -X POST "$BASE/api/waiting-room/$1" -H "X-User-Id: $2"; }
+status() { curl -fsS "$BASE/api/waiting-room/$1" -H "X-User-Id: $2"; }
 issue_code() { curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/coupons/$1/issue" -H "X-User-Id: $2"; }
 
 printf '\n\033[1;36m===== part-6-1 Redis 대기실 검증 =====\033[0m\n'
@@ -25,10 +26,13 @@ check "user 3 순번" "$(enter "$coupon" 3 | jq -r '.position')" "3"
 
 printf '\n[진입 멱등성] 새로고침해도 순번 안 밀림\n'
 check "user 1 재진입 순번" "$(enter "$coupon" 1 | jq -r '.position')" "1"
+check "user 2 상태 조회 순번" "$(status "$coupon" 2 | jq -r '.position')" "2"
+
+printf '\n[상태 조회] 드레인 전후에도 조회는 재등록하지 않음\n'
+sleep 1.5
+check "user 1 통과 여부" "$(status "$coupon" 1 | jq -r '.admitted')" "true"
 
 printf '\n[통과 후 발급] 드레인(매초)으로 통과 -> 입장권 -> 발급 성공\n'
-sleep 1.5
-check "user 1 통과 여부" "$(enter "$coupon" 1 | jq -r '.admitted')" "true"
 check "user 1 발급 응답" "$(issue_code "$coupon" 1)" "200"
 
 printf '\n[게이트] 대기실 안 거친 사용자는 발급 차단 (403)\n'

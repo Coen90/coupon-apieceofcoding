@@ -1,4 +1,5 @@
-// 대기실 진입 폭주. 줄을 채워 드레인이 매초 통과 속도만큼 일하게 만든다 (측정은 run.sh 가 admitted 로).
+// 대기실 등록 폭주. 등록은 한 번만 호출하고, 상태 조회는 별도 스크립트로 측정한다.
+// 줄을 채워 드레인이 매초 통과 속도만큼 일하게 만든다 (측정은 run.sh 가 admitted 로).
 // BASES 에 콤마로 여러 인스턴스를 주면 VU 가 라운드로빈으로 나눠 진입한다.
 import http from 'k6/http';
 import { Trend } from 'k6/metrics';

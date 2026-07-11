@@ -61,6 +61,7 @@ QUANTITY=2000000 BASE_URL=http://localhost:8080 ./scripts/load/part-6/run.sh
 # part-6 (트래픽 제어)
 ./scripts/load/part-6/run.sh   # 6-0 part-6-0-load-test: 매진 전 발급 폭주 베이스라인
 ./scripts/load/part-6/run.sh   # 6-1 part-6-1-waiting-room: Redis 대기실 통과 속도
+COUPON_ID=<coupon-id> POLL_RATE=1000 k6 run scripts/load/part-6/waiting_room_status.js  # 등록 후 GET 상태 조회 부하
 ./scripts/load/part-6/edge.sh  # 6-2 part-6-2-edge-rate-limit: 엣지 Rate Limit
 ```
 part-5 는 두 등식 `total = 발급누적 + Redis재고 = Redis사용자 + Redis재고` 의 잔차로 불일치를 잰다. p5-1 이상에서는 모든 issuance 주입 이벤트에 발급 시도별 `issuanceAttemptId`를 넣는다. `force_dlt` 는 DB 측(알람 대상), `force_db_only` 는 목록 측(자동 보정 대상)을 깬다.

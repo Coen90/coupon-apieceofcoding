@@ -2,8 +2,11 @@ package com.apiece.coupon.application
 
 // 가상 대기실. 줄(FIFO)에 세우고 통과 속도만큼만 입장권으로 흘려보낸다 (발급 정확성은 안 맡고 도착 속도만).
 interface WaitingRoom {
-    // 진입 = 폴링. 멱등이라 새로고침해도 순번이 안 밀린다.
+    // 최초 진입. 멱등이라 재호출해도 순번이 안 밀린다.
     fun enter(couponId: Long, userId: Long): Admission
+
+    // 상태 조회. 대기열을 다시 수정하지 않는다.
+    fun status(couponId: Long, userId: Long): Admission
 
     fun isAdmitted(couponId: Long, userId: Long): Boolean
 }

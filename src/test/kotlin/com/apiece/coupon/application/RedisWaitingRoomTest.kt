@@ -2,6 +2,7 @@ package com.apiece.coupon.application
 
 import com.apiece.coupon.infrastructure.cache.WaitingRoomProperties
 import com.apiece.coupon.infrastructure.cache.WaitingRoomRedisRepository
+import com.apiece.coupon.support.WaitingRoomNotEnteredException
 import com.apiece.coupon.support.WaitingRoomUnavailableException
 import io.mockk.every
 import io.mockk.mockk
@@ -36,6 +37,21 @@ class RedisWaitingRoomTest {
         assertFalse(admission.admitted)
         assertEquals(250L, admission.position)
         assertEquals(3L, admission.estimatedWaitSeconds) // 250 / 100 올림
+    }
+
+    @Test
+    fun `상태 조회는 대기열을 다시 등록하지 않고 기존 순번을 반환한다`() {
+        every { repository.status(1L, 7L) } returns 250L
+        val admission = room().status(1L, 7L)
+        assertFalse(admission.admitted)
+        assertEquals(250L, admission.position)
+        assertEquals(3L, admission.estimatedWaitSeconds)
+    }
+
+    @Test
+    fun `상태 조회에서 아직 진입하지 않은 사용자는 실패한다`() {
+        every { repository.status(1L, 7L) } returns null
+        assertFailsWith<WaitingRoomNotEnteredException> { room().status(1L, 7L) }
     }
 
     @Test

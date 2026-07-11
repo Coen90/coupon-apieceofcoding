@@ -2,6 +2,7 @@ package com.apiece.coupon.application
 
 import com.apiece.coupon.infrastructure.cache.WaitingRoomProperties
 import com.apiece.coupon.infrastructure.cache.WaitingRoomRedisRepository
+import com.apiece.coupon.support.WaitingRoomNotEnteredException
 import com.apiece.coupon.support.WaitingRoomUnavailableException
 import io.github.oshai.kotlinlogging.KotlinLogging
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock
@@ -24,6 +25,22 @@ class RedisWaitingRoom(
         return if (admitted) Admission.ADMITTED
         else Admission.waiting(position, properties.admitPerSecond)
     }
+
+    override fun status(couponId: Long, userId: Long): Admission =
+        try {
+            when (val position = repository.status(couponId, userId)) {
+                null -> throw WaitingRoomNotEnteredException()
+                0L -> Admission.ADMITTED
+                else -> Admission.waiting(position, properties.admitPerSecond)
+            }
+        } catch (e: DataAccessException) {
+            if (properties.failOpen) {
+                log.warn(e) { "대기실 Redis 장애, fail-open 으로 통과 (위험)" }
+                Admission.ADMITTED
+            } else {
+                throw WaitingRoomUnavailableException()
+            }
+        }
 
     override fun isAdmitted(couponId: Long, userId: Long): Boolean =
         try {
