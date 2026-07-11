@@ -22,26 +22,24 @@ class CouponCacheRepository(
         getOrLoad(
             cacheKey = "coupon:$id:issue-policy",
             lockKey = "coupon:$id:issue-policy:lock",
-            fallbackKey = "coupon:$id:issue-policy:fallback",
             loader = loader,
         )
 
     private fun getOrLoad(
         cacheKey: String,
         lockKey: String,
-        fallbackKey: String,
         loader: () -> CouponIssuePolicy,
     ): CouponIssuePolicy {
         val token = UUID.randomUUID().toString()
         repeat(MAX_RETRIES) {
             val result = redis.runForStrings(
                 singleFlightScript,
-                listOf(cacheKey, lockKey, fallbackKey),
+                listOf(cacheKey, lockKey),
                 token, LOCK_TTL_MS,
             )
 
             when (result[0]) {
-                "HIT", "WAIT_FALLBACK" -> {
+                "HIT" -> {
                     cacheMetrics.incrementCouponCacheHit()
                     return mapper.readValue(result[1], CouponIssuePolicy::class.java)
                 }
@@ -50,12 +48,11 @@ class CouponCacheRepository(
                     val response = loader()
                     val json = mapper.writeValueAsString(response)
                     redis.opsForValue().set(cacheKey, json, Duration.ofMillis(properties.ttlMs))
-                    redis.opsForValue().set(fallbackKey, json, Duration.ofMillis(properties.ttlMs * FALLBACK_TTL_MULTIPLIER))
                     response
                 } finally {
                     redis.delete(lockKey)
                 }
-                "WAIT_MISS" -> Thread.sleep(WAIT_BACKOFF_MS)
+                "WAIT" -> Thread.sleep(WAIT_BACKOFF_MS)
             }
         }
         throw IllegalStateException("쿠폰 캐시 채우기 timeout (key=$cacheKey)")
@@ -65,6 +62,5 @@ class CouponCacheRepository(
         const val MAX_RETRIES = 50
         const val WAIT_BACKOFF_MS = 20L
         const val LOCK_TTL_MS = 3_000L
-        const val FALLBACK_TTL_MULTIPLIER = 60L
     }
 }
