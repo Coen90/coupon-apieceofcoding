@@ -19,12 +19,14 @@ class ReconcilerTest {
     private val issuanceRepository = mockk<IssuanceRepository>(relaxed = true)
     private val redis = mockk<CouponReconcileRedisRepository>(relaxUnitFun = true)
     private val metrics = mockk<ReconcileMetrics>(relaxUnitFun = true)
+    private val checkpointStore = mockk<ReconcileCheckpointStore>(relaxUnitFun = true)
     private val gracePeriodMs = 10000L
     private val reconciler = Reconciler(
         couponRepository, issuanceRepository, redis,
         SoldOutProperties(ttlSeconds = 86400, fastPathTtlMs = 1000),
         ReconcileProperties(intervalMs = 60000, gracePeriodMs = gracePeriodMs),
         metrics,
+        checkpointStore,
     )
 
     private val couponId = 1L
@@ -118,5 +120,22 @@ class ReconcilerTest {
         val after = System.currentTimeMillis()
 
         assert(toSlot.captured in (before - gracePeriodMs)..(after - gracePeriodMs))
+    }
+
+    @Test
+    fun `전수 audit 은 Redis 색인 대신 DB 의 모든 쿠폰을 검사`() {
+        val coupon = Coupon(name = "t", totalQuantity = 10, issuedQuantity = 0, id = couponId)
+        every { checkpointStore.acquire() } returns true
+        every { couponRepository.findAll() } returns listOf(coupon)
+        every { couponRepository.findById(couponId) } returns Optional.of(coupon)
+        every { redis.stock(couponId) } returns 10
+        every { redis.userCount(couponId) } returns 0
+        every { redis.soldOutExists(couponId) } returns false
+
+        val report = reconciler.auditAll()
+
+        verify { couponRepository.findAll() }
+        verify { checkpointStore.release() }
+        assert(report.checkedCoupons == 1 && report.failedCoupons == 0)
     }
 }

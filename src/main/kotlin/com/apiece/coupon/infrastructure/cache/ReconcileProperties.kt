@@ -6,4 +6,5 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 class ReconcileProperties(
     val intervalMs: Long,
     val gracePeriodMs: Long,
+    val leaseMs: Long = 120_000,
 )

@@ -8,6 +8,7 @@ class ReconcileRunResponse(
     val driftAlerts: Int,
     val redisDbDrift: Long,
     val stockNegative: Int,
+    val failedCoupons: Int,
 ) {
     companion object {
         fun from(report: ReconcileReport): ReconcileRunResponse = ReconcileRunResponse(
@@ -16,6 +17,7 @@ class ReconcileRunResponse(
             driftAlerts = report.driftAlerts,
             redisDbDrift = report.redisDbDrift,
             stockNegative = report.stockNegative,
+            failedCoupons = report.failedCoupons,
         )
     }
 }

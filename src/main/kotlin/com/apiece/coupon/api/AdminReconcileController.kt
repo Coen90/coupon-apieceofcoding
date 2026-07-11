@@ -13,5 +13,5 @@ class AdminReconcileController(
 ) {
     @PostMapping("/run")
     fun run(): ReconcileRunResponse =
-        ReconcileRunResponse.from(reconciler.reconcileAll())
+        ReconcileRunResponse.from(reconciler.auditAll())
 }

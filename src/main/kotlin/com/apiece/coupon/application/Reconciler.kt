@@ -8,8 +8,6 @@ import com.apiece.coupon.infrastructure.cache.SoldOutProperties
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
-import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.abs
 
 private val log = KotlinLogging.logger {}
@@ -22,64 +20,80 @@ class Reconciler(
     private val soldOutProperties: SoldOutProperties,
     private val reconcileProperties: ReconcileProperties,
     private val metrics: ReconcileMetrics,
+    private val checkpointStore: ReconcileCheckpointStore,
 ) {
-
-    // 스케줄과 /admin/reconcile/run 이 동시에 돌면 게이지가 비결정적으로 덮어써지므로 한 번에 하나만.
-    private val running = AtomicBoolean(false)
-
-    // 스케줄 대사가 마지막으로 검사한 상한(cutoff). 다음 회차의 하한이 되어 슬라이스가 이어진다 (sliding window).
-    private val lastCutoffMs = AtomicLong(0)
-
     @Scheduled(fixedRateString = "\${coupon.reconcile.interval-ms}")
     fun scheduled() {
+        if (!checkpointStore.acquire()) {
+            log.info { "다른 인스턴스가 reconcile lease를 가지고 있어 이번 호출은 건너뜀" }
+            return
+        }
         val cutoffMs = System.currentTimeMillis() - reconcileProperties.gracePeriodMs
-        // 첫 회차는 직전 cutoff 가 없으니 한 칸(interval)만 거슬러 올라가 1분치 슬라이스로 시작한다.
-        val fromMs = lastCutoffMs.get().takeIf { it > 0 } ?: (cutoffMs - reconcileProperties.intervalMs)
-        if (reconcileWindow(fromMs, cutoffMs) != null) lastCutoffMs.set(cutoffMs)
+        try {
+            // 첫 회차는 직전 cutoff가 없으니 한 칸(interval)만 거슬러 올라간다.
+            val fromMs = checkpointStore.lastSuccessCutoffMs().takeIf { it > 0 }
+                ?: (cutoffMs - reconcileProperties.intervalMs)
+            val report = reconcileWindow(fromMs, cutoffMs)
+            // 실패한 쿠폰이 있으면 같은 구간을 다음 회차에 다시 본다.
+            if (report.failedCoupons == 0) checkpointStore.markSuccess(cutoffMs)
+        } finally {
+            checkpointStore.release()
+        }
     }
 
     // 운영/검증용 수동 트리거: 하한 0 으로 지금까지 정착된 발급을 한 번에 훑는다 (스케줄 커서는 건드리지 않음).
     fun reconcileAll(): ReconcileReport {
         val cutoffMs = System.currentTimeMillis() - reconcileProperties.gracePeriodMs
-        return reconcileWindow(0, cutoffMs) ?: ReconcileReport(0, 0, 0, 0L, 0)
+        return reconcileWindow(0, cutoffMs)
     }
 
-    // 발급 시각이 (fromExclusiveMs, toInclusiveMs] 에 든 쿠폰만 검사한다. 동시 실행 중이면 null.
-    private fun reconcileWindow(fromExclusiveMs: Long, toInclusiveMs: Long): ReconcileReport? {
-        if (!running.compareAndSet(false, true)) {
-            log.info { "reconcile 이 이미 실행 중이라 이번 호출은 건너뜀" }
-            return null
-        }
-        try {
-            val couponIds = reconcileRedisRepository.couponIdsIssuedBetween(fromExclusiveMs, toInclusiveMs)
-            val outcomes = couponIds.map { couponId ->
-                try {
-                    reconcileCoupon(couponId)
-                } catch (e: Exception) {
-                    log.warn(e) { "reconcile 중 예외 coupon=$couponId, skip" }
-                    CouponOutcome()
-                }
-            }
-
-            val report = ReconcileReport(
-                checkedCoupons = couponIds.size,
-                autoFixed = outcomes.sumOf { it.autoFixed },
-                driftAlerts = outcomes.count { it.confirmedDbDrift > 0 },
-                redisDbDrift = outcomes.sumOf { it.confirmedDbDrift },
-                stockNegative = outcomes.count { it.stockNegative },
-            )
-            metrics.setRedisDbDrift(report.redisDbDrift)
-            metrics.setStockNegative(report.stockNegative.toLong())
-            metrics.addAutoFix(report.autoFixed)
-            return report
+    // Redis ZSET을 잃어도 대상을 찾을 수 있도록 DB의 모든 쿠폰을 느리게 점검한다.
+    fun auditAll(): ReconcileReport {
+        if (!checkpointStore.acquire()) return ReconcileReport(0, 0, 0, 0L, 0)
+        return try {
+            val couponIds = couponRepository.findAll().mapNotNull { it.id }
+            reconcileCoupons(couponIds)
         } finally {
-            running.set(false)
+            checkpointStore.release()
         }
+    }
+
+    // 발급 시각이 (fromExclusiveMs, toInclusiveMs] 에 든 쿠폰만 검사한다.
+    private fun reconcileWindow(fromExclusiveMs: Long, toInclusiveMs: Long): ReconcileReport {
+        val couponIds = reconcileRedisRepository.couponIdsIssuedBetween(fromExclusiveMs, toInclusiveMs)
+        return reconcileCoupons(couponIds)
+    }
+
+    private fun reconcileCoupons(couponIds: List<Long>): ReconcileReport {
+        val outcomes = couponIds.map { couponId ->
+            try {
+                reconcileCoupon(couponId)
+            } catch (e: Exception) {
+                log.warn(e) { "reconcile 중 예외 coupon=$couponId, 다음 회차에 재시도" }
+                CouponOutcome(failed = true)
+            }
+        }
+        val report = ReconcileReport(
+            checkedCoupons = couponIds.size,
+            autoFixed = outcomes.sumOf { it.autoFixed },
+            driftAlerts = outcomes.count { it.confirmedDbDrift > 0 },
+            redisDbDrift = outcomes.sumOf { it.confirmedDbDrift },
+            stockNegative = outcomes.count { it.stockNegative },
+            failedCoupons = outcomes.count { it.failed },
+        )
+        metrics.setRedisDbDrift(report.redisDbDrift)
+        metrics.setStockNegative(report.stockNegative.toLong())
+        metrics.addAutoFix(report.autoFixed)
+        return report
     }
 
     // Redis 측 안전한 불일치를 그 자리에서 보정하고, 무엇을 했는지 반환한다 (메트릭 집계는 reconcileWindow).
     private fun reconcileCoupon(couponId: Long): CouponOutcome {
-        val s = readSnapshot(couponId) ?: return CouponOutcome()
+        val s = readSnapshot(couponId)
+        if (s == null) {
+            log.warn { "Redis stock 키가 없어 대상을 확인할 수 없음 coupon=$couponId (전수 audit 대상)" }
+            return CouponOutcome(confirmedDbDrift = 1L)
+        }
         var autoFixed = 0
         val stockNegative = s.stock < 0
         if (stockNegative) log.warn { "재고 음수 감지 coupon=$couponId stock=${s.stock}" }
@@ -131,5 +145,6 @@ class Reconciler(
         val autoFixed: Int = 0,
         val confirmedDbDrift: Long = 0L,
         val stockNegative: Boolean = false,
+        val failed: Boolean = false,
     )
 }

@@ -7,4 +7,5 @@ class ReconcileReport(
     val driftAlerts: Int,
     val redisDbDrift: Long,
     val stockNegative: Int,
+    val failedCoupons: Int = 0,
 )

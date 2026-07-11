@@ -43,6 +43,8 @@ coupon:
     interval-ms: ${COUPON_RECONCILE_INTERVAL_MS:60000}
     # 발급 시각 window 상한 여유분. 방금 발급돼 DB 가 아직 안 따라온 쿠폰은 cutoff(now - grace) 이후라 제외된다.
     grace-period-ms: ${COUPON_RECONCILE_GRACE_PERIOD_MS:10000}
+    # 실행 인스턴스가 죽으면 다른 인스턴스가 다시 잡을 수 있는 lease 시간.
+    lease-ms: ${COUPON_RECONCILE_LEASE_MS:120000}
 
 logging:
   level:
