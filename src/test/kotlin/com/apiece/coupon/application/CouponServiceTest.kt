@@ -25,7 +25,8 @@ class CouponServiceTest {
     private val couponIssuePolicyReader = mockk<CouponIssuePolicyReader>()
     private val couponIssuer = mockk<CouponIssuer>(relaxUnitFun = true)
     private val producer = mockk<IssuanceRequestProducer>(relaxUnitFun = true)
-    private val service = CouponService(couponRepository, couponIssuePolicyReader, couponIssuer, producer)
+    private val soldOutState = mockk<SoldOutState>(relaxed = true)
+    private val service = CouponService(couponRepository, couponIssuePolicyReader, couponIssuer, producer, soldOutState)
 
     @Test
     fun `행사 생성하면 Redis 재고 키 초기화`() {

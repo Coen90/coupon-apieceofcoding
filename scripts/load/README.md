@@ -13,7 +13,7 @@ scripts/load/
 │   ├── run.sh                    # 워밍업 + 본 측정 통합 러너
 │   ├── kafka_lag.sh              # (3-2c) Consumer lag
 │   └── kafka_dlt_peek.sh         # (3-2c) DLT 토픽 확인
-└── part-4/                       # 캐시 + 매진 시그널
+└── part-4/                       # 캐시 + 매진 상태
     ├── coupon_burst.js           # 500 req/s 30s issue API 쿠폰 정보 조회
     ├── create_issue_policy_coupon.sh # 시작 전 쿠폰 정보 실험용 쿠폰
     ├── post_sellout_refresh.js   # 매진 후 4000 req/s 30s 발급 폭주
