@@ -31,7 +31,7 @@ printf '\n\033[1;35m##### B단계: DB 쪽이 어긋난 경우 -> 알람만, 함�
 ./scripts/load/reset.sh >/dev/null
 reset_recon_metrics
 CID2=$(./scripts/load/create_coupon.sh)
-# PRODUCE_DLT=0: 실패 메시지 없이 Redis 만 어긋난 순수 DB 측 차이 (보상 처리기가 소비할 게 없음).
+# PRODUCE_DLT=0: 실패 메시지 없이 Redis 만 어긋난 순수 DB 측 차이 (운영자 DLT 처리가 개입하지 않음).
 COUPON_ID="$CID2" COUNT="$COUNT" PRODUCE_DLT=0 ./scripts/load/part-5/force_dlt.sh >/dev/null
 issued_before="$(mysql_scalar "SELECT issued_quantity FROM coupon WHERE id=$CID2")"
 stock_before="$(redis_cli GET "coupon:$CID2:stock")"
