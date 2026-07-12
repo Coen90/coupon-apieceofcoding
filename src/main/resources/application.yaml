@@ -45,6 +45,13 @@ coupon:
     grace-period-ms: ${COUPON_RECONCILE_GRACE_PERIOD_MS:10000}
     # 실행 인스턴스가 죽으면 다른 인스턴스가 다시 잡을 수 있는 lease 시간.
     lease-ms: ${COUPON_RECONCILE_LEASE_MS:120000}
+  waiting-room:
+    # 1초마다 통과시키는 인원.
+    admit-per-second: ${COUPON_WAITING_ROOM_ADMIT_PER_SECOND:100}
+    # 입장권 유효 시간(ms).
+    pass-ttl-ms: ${COUPON_WAITING_ROOM_PASS_TTL_MS:30000}
+    # 고정 수량 도메인은 fail-close(false)가 기본.
+    fail-open: ${COUPON_WAITING_ROOM_FAIL_OPEN:false}
 
 logging:
   level:
