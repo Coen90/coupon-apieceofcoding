@@ -14,7 +14,7 @@ wait_service_ready() { # [timeout=60]
   return 1
 }
 
-# kafka 를 비우고 서비스를 깨끗한 상태로 재기동한다 (보상 처리기가 처음부터 다시 읽음).
+# kafka 를 비우고 서비스를 깨끗한 상태로 재기동한다 (DLT와 발급 이벤트를 새로 검증).
 # 인자로 reconcile 주기(ms)를 주면 그 값으로 띄워(force-recreate) 스케줄 간섭을 막고, 없으면 기본 주기로 재시작.
 restart_service() { # [reconcile_interval_ms]
   ./scripts/load/part-5/reset_kafka.sh

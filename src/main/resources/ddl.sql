@@ -18,11 +18,13 @@ CREATE TABLE issuance (
     id              BIGINT       NOT NULL AUTO_INCREMENT,
     user_id         BIGINT       NOT NULL,
     coupon_id       BIGINT       NOT NULL,
+    operation_id    VARCHAR(36)  NOT NULL,
     status          VARCHAR(16)  NOT NULL DEFAULT 'ISSUED',
     issued_at       DATETIME     NOT NULL,
     expires_at      DATETIME     NOT NULL,
     used_at         DATETIME     NULL,
     PRIMARY KEY (id),
+    UNIQUE KEY uk_issuance_operation_id (operation_id),
     UNIQUE KEY uk_issuance_user_coupon (user_id, coupon_id),
     KEY idx_issuance_status (status),
     KEY idx_issuance_coupon (coupon_id)
