@@ -1,6 +1,6 @@
 package com.apiece.coupon.api.dto
 
 class DltReplayResponse(
-    val operationId: String,
+    val issuanceAttemptId: String,
     val queued: Boolean = true,
 )

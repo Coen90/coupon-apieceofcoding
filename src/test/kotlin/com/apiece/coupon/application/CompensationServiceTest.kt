@@ -22,7 +22,7 @@ class CompensationServiceTest {
     private fun command(id: String = "operation-1") = CompensationCommand(
         couponId = 1L,
         userId = 42L,
-        operationId = id,
+        issuanceAttemptId = id,
         reason = CompensationReason.DLT_REPLAY,
     )
 

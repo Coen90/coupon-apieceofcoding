@@ -28,13 +28,13 @@ printf '만든 쿠폰 번호 = %s\n' "$CID"
 
 COUPON_ID="$CID" COUNT="$COUNT" ./scripts/load/part-5/force_dlt.sh
 
-printf 'DLT를 확인했다고 가정하고 operationId별 수동 보상을 실행하는 중...\n'
+printf 'DLT를 확인했다고 가정하고 issuanceAttemptId별 수동 보상을 실행하는 중...\n'
 for i in $(seq 1 "$COUNT"); do
   uid=$((USER_BASE + i))
-  operation_id="$(redis_cli GET "coupon:$CID:operation:$uid")"
+  issuance_attempt_id="$(redis_cli GET "coupon:$CID:issuance-attempt:$uid")"
   curl -fsS -X POST "$BASE/admin/compensate" \
     -H 'Content-Type: application/json' \
-    -d "{\"couponId\":$CID,\"userId\":$uid,\"operationId\":\"$operation_id\"}" >/dev/null
+    -d "{\"couponId\":$CID,\"userId\":$uid,\"issuanceAttemptId\":\"$issuance_attempt_id\"}" >/dev/null
 done
 COUPON_ID="$CID" ./scripts/load/part-5/drift_report.sh
 
@@ -49,8 +49,8 @@ TEST_UID=12345
 curl -fsS -X POST "$BASE/api/coupons/$CID/issue" -H "X-User-Id: $TEST_UID" >/dev/null
 wait_issued_row "$CID" "$TEST_UID" || ng "발급이 DB 에 기록되길 기다리다 실패"
 stock_before="$(redis_cli GET "coupon:$CID:stock")"
-operation_id="$(mysql_scalar "SELECT operation_id FROM issuance WHERE coupon_id=$CID AND user_id=$TEST_UID")"
-body="{\"couponId\":$CID,\"userId\":$TEST_UID,\"operationId\":\"$operation_id\"}"
+issuance_attempt_id="$(mysql_scalar "SELECT issuance_attempt_id FROM issuance WHERE coupon_id=$CID AND user_id=$TEST_UID")"
+body="{\"couponId\":$CID,\"userId\":$TEST_UID,\"issuanceAttemptId\":\"$issuance_attempt_id\"}"
 r1=$(curl -fsS -X POST "$BASE/admin/compensate" -H 'Content-Type: application/json' -d "$body" | jq -r '.compensated')
 r2=$(curl -fsS -X POST "$BASE/admin/compensate" -H 'Content-Type: application/json' -d "$body" | jq -r '.compensated')
 check "첫 호출은 실제로 되돌림" "$r1" "true"
@@ -69,7 +69,7 @@ check "발급 직후 '매진' 표시됨" "$(redis_cli EXISTS "coupon:$SCID:sold_
 check "발급 직후 재고 0" "$(redis_cli GET "coupon:$SCID:stock")" "0"
 
 curl -fsS -X POST "$BASE/admin/compensate" -H 'Content-Type: application/json' \
-  -d "{\"couponId\":$SCID,\"userId\":1,\"operationId\":\"$(mysql_scalar "SELECT operation_id FROM issuance WHERE coupon_id=$SCID AND user_id=1")\"}" >/dev/null
+  -d "{\"couponId\":$SCID,\"userId\":1,\"issuanceAttemptId\":\"$(mysql_scalar "SELECT issuance_attempt_id FROM issuance WHERE coupon_id=$SCID AND user_id=1")\"}" >/dev/null
 check "보상 후 '매진' 표시 풀림" "$(redis_cli EXISTS "coupon:$SCID:sold_out")" "0"
 check "보상 후 재고 1장 복구" "$(redis_cli GET "coupon:$SCID:stock")" "1"
 check "매진 풀린 뒤 새 사용자 발급 성공(200)" \

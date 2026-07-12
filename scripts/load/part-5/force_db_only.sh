@@ -20,16 +20,16 @@ printf '\n\033[1;36m===== [상황 만들기] DB 엔 발급됐는데 Redis 명단
   "$COUNT"
 
 # 1) DB 에 ISSUED 행 N개 INSERT (정상 발급이 DB 까지 도달한 것처럼).
-#    operationId도 실제 발급 이벤트처럼 시도별로 하나씩 만든다.
+#    issuanceAttemptId도 실제 발급 이벤트처럼 시도별로 하나씩 만든다.
 values=""
 first=0; last=0
 for i in $(seq 1 "$COUNT"); do
   uid=$(( USER_BASE + i ))
-  operation_id="$(uuidgen | tr '[:upper:]' '[:lower:]')"
+  issuance_attempt_id="$(uuidgen | tr '[:upper:]' '[:lower:]')"
   if (( i == 1 )); then first=$uid; fi
   last=$uid
   [[ -n "$values" ]] && values+=","
-  values+="($uid, $COUPON_ID, '$operation_id', 'ISSUED', NOW(), DATE_ADD(NOW(), INTERVAL 7 DAY))"
+  values+="($uid, $COUPON_ID, '$issuance_attempt_id', 'ISSUED', NOW(), DATE_ADD(NOW(), INTERVAL 7 DAY))"
 done
 # 재실행 가드: 같은 범위가 이미 들어가 있으면 UNIQUE 위반 크래시 대신 안내 후 중단.
 # 오케스트레이터(run.sh)는 reset.sh 로 비운 뒤 부르므로 이 가드에 걸리지 않는다.
@@ -38,7 +38,7 @@ if [[ "$(mysql_exec "SELECT COUNT(*) FROM issuance WHERE coupon_id = $COUPON_ID 
   exit 1
 fi
 
-mysql_exec "INSERT INTO issuance (user_id, coupon_id, operation_id, status, issued_at, expires_at) VALUES $values;
+mysql_exec "INSERT INTO issuance (user_id, coupon_id, issuance_attempt_id, status, issued_at, expires_at) VALUES $values;
             UPDATE coupon SET issued_quantity = issued_quantity + $COUNT WHERE id = $COUPON_ID;"
 printf '  DB: 발급 기록 %s건 추가 + 발급 수 %s 증가 (%s~%s번)\n' \
   "$COUNT" "$COUNT" "$first" "$last"

@@ -2,11 +2,11 @@
 -- KEYS[1] = coupon:{id}:stock
 -- KEYS[2] = coupon:{id}:users
 -- KEYS[3] = coupon:{id}:sold_out
--- KEYS[4] = compensation:{operationId}        (빠른 중복 방지 키)
--- KEYS[5] = coupon:{id}:operation:{userId}    (현재 발급 operationId)
+-- KEYS[4] = compensation:{issuanceAttemptId}        (빠른 중복 방지 키)
+-- KEYS[5] = coupon:{id}:issuance-attempt:{userId}    (현재 발급 issuanceAttemptId)
 -- ARGV[1] = userId
 -- ARGV[2] = idempotencyTtlSeconds
--- ARGV[3] = operationId
+-- ARGV[3] = issuanceAttemptId
 -- 반환: 1=실제 보상, 0=중복 또는 다른 발급
 
 -- 오래된 DLT가 새 발급을 되돌리지 않도록 현재 발급 세대를 먼저 확인한다.

@@ -54,7 +54,7 @@ if (( db_gap == 0 && list_gap == 0 )); then
 elif (( db_gap > 0 && list_gap == 0 )); then
   printf '\033[1;33m  => DB 가 %s건 덜 세고 있어요. 발급은 됐는데 DB 저장이 실패한 경우입니다\n' "$db_gap"
   printf '     (사용자에겐 발급 성공 응답이 이미 나갔어요).\n'
-  printf '     - DLT를 먼저 확인하세요. 일시 장애면 같은 operationId로 재처리하고,\n'
+  printf '     - DLT를 먼저 확인하세요. 일시 장애면 같은 issuanceAttemptId로 재처리하고,\n'
   printf '       재시도 기한 초과나 정책상 취소면 운영자 보상을 실행합니다.\n'
   printf '       (reconcile은 DB 측을 함부로 자동 보정하지 않고 알람만 띄웁니다.)\n'
   printf '     - DLT가 없거나 원인을 모르면 사람이 직접 상태를 확인합니다.\n'
@@ -63,7 +63,7 @@ elif (( db_gap > 0 && list_gap == 0 )); then
   printf '         2) 일시적 실패(DB 잠깐 장애 등)면 → 재처리: 그 발급을 DB 에 다시 저장해 사용자가 쿠폰 유지\n'
   printf '            영구 실패(깨진 데이터, 마감 지남, 정책상 취소)면 → 보상으로 되돌림:\n'
   printf "            curl -X POST localhost:8080/admin/compensate -H 'Content-Type: application/json' \\\\\n"
-  printf '              -d '"'"'{"couponId":%s,"userId":<발급자번호>,"operationId":"<원본 발급 operationId>"}'"'"'\n' "$COUPON_ID"
+  printf '              -d '"'"'{"couponId":%s,"userId":<발급자번호>,"issuanceAttemptId":"<원본 발급 issuanceAttemptId>"}'"'"'\n' "$COUPON_ID"
   printf '            (재고를 1 되돌리고, 발급자 명단에서 빼고, 발급 기록을 취소로 남김)\033[0m\n'
 elif (( db_gap == 0 && list_gap > 0 )); then
   printf '\033[1;33m  => Redis 발급자 명단에서 %s명이 비어 있어요. 명단만 날아간 경우라,\n' "$list_gap"

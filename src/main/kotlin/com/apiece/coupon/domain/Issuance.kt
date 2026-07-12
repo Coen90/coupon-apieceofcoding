@@ -34,8 +34,8 @@ class Issuance(
     @Column(name = "coupon_id", nullable = false)
     var couponId: Long,
 
-    @Column(name = "operation_id", nullable = false, unique = true, length = 36, updatable = false)
-    var operationId: String = UUID.randomUUID().toString(),
+    @Column(name = "issuance_attempt_id", nullable = false, unique = true, length = 36, updatable = false)
+    var issuanceAttemptId: String = UUID.randomUUID().toString(),
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)

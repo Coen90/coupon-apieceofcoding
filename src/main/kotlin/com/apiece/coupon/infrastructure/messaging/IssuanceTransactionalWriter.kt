@@ -17,7 +17,7 @@ class IssuanceTransactionalWriter(
             Issuance(
                 userId = event.userId,
                 couponId = event.couponId,
-                operationId = event.operationId,
+                issuanceAttemptId = event.issuanceAttemptId,
                 issuedAt = event.issuedAt,
                 expiresAt = event.expiresAt,
             )

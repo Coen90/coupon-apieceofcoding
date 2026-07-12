@@ -28,10 +28,10 @@ printf '\n\033[1;36m===== [상황 만들기] 발급은 됐는데 DB 저장이 �
 
 # 1) Redis 는 발급 완료 상태로 (정상 발급이 끝난 직후처럼): 재고 N 차감 + 사용자 N 추가.
 user_ids=()
-operation_ids=()
+issuance_attempt_ids=()
 for i in $(seq 1 "$COUNT"); do
   user_ids+=( $(( USER_BASE + i )) )
-  operation_ids+=( "$(uuidgen | tr '[:upper:]' '[:lower:]')" )
+  issuance_attempt_ids+=( "$(uuidgen | tr '[:upper:]' '[:lower:]')" )
 done
 
 # 재실행 가드: 같은 쿠폰에 이미 주입돼 있으면 (reset 없이 재실행) 재고가 또 깎이지 않게 중단.
@@ -44,7 +44,7 @@ fi
 redis_cli DECRBY "coupon:$COUPON_ID:stock" "$COUNT" >/dev/null
 redis_cli SADD "coupon:$COUPON_ID:users" "${user_ids[@]}" >/dev/null
 for i in "${!user_ids[@]}"; do
-  redis_cli SET "coupon:$COUPON_ID:operation:${user_ids[$i]}" "${operation_ids[$i]}" >/dev/null
+  redis_cli SET "coupon:$COUPON_ID:issuance-attempt:${user_ids[$i]}" "${issuance_attempt_ids[$i]}" >/dev/null
 done
 printf '  Redis: 재고 %s 줄이고 발급자 명단에 %s명 추가 (%s~%s번)  ← 사용자에겐 발급 성공으로 보임\n' \
   "$COUNT" "$COUNT" "${user_ids[0]}" "${user_ids[$((COUNT - 1))]}"
@@ -59,8 +59,8 @@ redis_cli EVAL \
 if [[ "$PRODUCE_DLT" == "1" ]]; then
   {
     for i in "${!user_ids[@]}"; do
-      printf '{"couponId":%s,"userId":%s,"operationId":"%s","issuedAt":"%s","expiresAt":"%s"}\n' \
-        "$COUPON_ID" "${user_ids[$i]}" "${operation_ids[$i]}" "$issued_at" "$expires_at"
+      printf '{"couponId":%s,"userId":%s,"issuanceAttemptId":"%s","issuedAt":"%s","expiresAt":"%s"}\n' \
+        "$COUPON_ID" "${user_ids[$i]}" "${issuance_attempt_ids[$i]}" "$issued_at" "$expires_at"
     done
   } | docker compose exec -T kafka /opt/kafka/bin/kafka-console-producer.sh \
     --bootstrap-server localhost:9092 --topic "$TOPIC" >/dev/null

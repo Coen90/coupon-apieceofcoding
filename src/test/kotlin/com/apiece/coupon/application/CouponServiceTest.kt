@@ -52,7 +52,7 @@ class CouponServiceTest {
         verify { producer.publish(any()) }
         assertEquals(42L, captured.captured.userId)
         assertEquals(1L, captured.captured.couponId)
-        assertEquals(36, captured.captured.operationId.length)
+        assertEquals(36, captured.captured.issuanceAttemptId.length)
         assertEquals(42L, result.userId)
         assertEquals(1L, result.couponId)
         assertNull(result.id) // 비동기 흐름이라 DB id 없음

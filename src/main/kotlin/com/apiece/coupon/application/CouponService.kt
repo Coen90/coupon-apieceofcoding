@@ -48,15 +48,15 @@ class CouponService(
             throw NotStartedException()
         }
 
-        val operationId = UUID.randomUUID().toString()
-        couponIssuer.tryIssue(couponId, userId, operationId)
+        val issuanceAttemptId = UUID.randomUUID().toString()
+        couponIssuer.tryIssue(couponId, userId, issuanceAttemptId)
 
         val expiresAt = now.plusDays(policy.validityDays.toLong())
         issuanceRequestProducer.publish(
             IssuanceRequested(
                 couponId = couponId,
                 userId = userId,
-                operationId = operationId,
+                issuanceAttemptId = issuanceAttemptId,
                 issuedAt = now,
                 expiresAt = expiresAt,
             )

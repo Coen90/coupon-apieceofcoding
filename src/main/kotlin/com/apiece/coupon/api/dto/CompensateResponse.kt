@@ -1,6 +1,6 @@
 package com.apiece.coupon.api.dto
 
 class CompensateResponse(
-    val operationId: String,
+    val issuanceAttemptId: String,
     val compensated: Boolean,
 )

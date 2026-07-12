@@ -7,7 +7,7 @@ import jakarta.persistence.Index
 import jakarta.persistence.Table
 import java.time.LocalDateTime
 
-// 보상 1차 멱등 키. PK(id = operationId) 충돌로 같은 발급의 두 번째 보상이 거절된다 (5단원 6.1).
+// 보상 1차 멱등 키. PK(id = issuanceAttemptId) 충돌로 같은 발급의 두 번째 보상이 거절된다 (5단원 6.1).
 @Entity
 @Table(
     name = "compensation_log",

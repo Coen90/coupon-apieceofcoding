@@ -21,11 +21,11 @@ class AdminDltController(
             IssuanceRequested(
                 couponId = request.couponId,
                 userId = request.userId,
-                operationId = request.operationId,
+                issuanceAttemptId = request.issuanceAttemptId,
                 issuedAt = request.issuedAt,
                 expiresAt = request.expiresAt,
             )
         )
-        return DltReplayResponse(request.operationId)
+        return DltReplayResponse(request.issuanceAttemptId)
     }
 }

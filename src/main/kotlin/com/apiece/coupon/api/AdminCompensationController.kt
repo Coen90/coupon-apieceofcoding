@@ -21,10 +21,10 @@ class AdminCompensationController(
             CompensationCommand(
                 couponId = request.couponId,
                 userId = request.userId,
-                operationId = request.operationId,
+                issuanceAttemptId = request.issuanceAttemptId,
                 reason = CompensationReason.OPERATOR_MANUAL,
             )
         )
-        return CompensateResponse(request.operationId, compensated)
+        return CompensateResponse(request.issuanceAttemptId, compensated)
     }
 }

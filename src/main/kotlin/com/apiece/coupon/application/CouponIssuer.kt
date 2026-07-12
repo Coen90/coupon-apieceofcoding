@@ -10,8 +10,8 @@ class CouponIssuer(
     private val issuanceRedisRepository: IssuanceRedisRepository,
 ) {
 
-    fun tryIssue(couponId: Long, userId: Long, operationId: String) {
-        when (issuanceRedisRepository.tryIssue(couponId, userId, operationId)) {
+    fun tryIssue(couponId: Long, userId: Long, issuanceAttemptId: String) {
+        when (issuanceRedisRepository.tryIssue(couponId, userId, issuanceAttemptId)) {
             1L -> Unit
             0L -> throw SoldOutException()
             -1L -> throw AlreadyIssuedException()

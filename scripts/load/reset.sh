@@ -9,7 +9,7 @@ cd "$(dirname "$0")/../.."
 
 printf '\n\033[1;36m===== coupon, issuance 데이터 리셋 =====\033[0m\n'
 # compensation_log 는 part-5-1 이상에서만 존재한다. 있으면 같이 비운다 (없으면 DO 0 으로 no-op).
-# 안 비우면 회차 사이에 같은 compensationId 가 멱등 hit 으로 잡혀 보상이 재현되지 않는다.
+# 안 비우면 회차 사이에 같은 issuanceAttemptId 가 멱등 hit 으로 잡혀 보상이 재현되지 않는다.
 docker compose exec -T -e MYSQL_PWD=coupon mysql mysql -ucoupon -t coupon -e "
   SET FOREIGN_KEY_CHECKS=0;
   TRUNCATE issuance;
