@@ -34,14 +34,14 @@ class Issuance(
     @Column(name = "coupon_id", nullable = false)
     var couponId: Long,
 
-    @Column(name = "issuance_attempt_id", nullable = false, unique = true, length = 36, updatable = false)
+    @Column(name = "issuance_attempt_id", nullable = false, unique = true, length = 36)
     var issuanceAttemptId: String = UUID.randomUUID().toString(),
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)
     var status: IssuanceStatus = IssuanceStatus.ISSUED,
 
-    @Column(name = "issued_at", nullable = false, updatable = false)
+    @Column(name = "issued_at", nullable = false)
     var issuedAt: LocalDateTime,
 
     @Column(name = "expires_at", nullable = false)
@@ -67,5 +67,13 @@ class Issuance(
 
     fun markCanceled() {
         status = IssuanceStatus.CANCELED
+    }
+
+    fun reissue(attemptId: String, issuedAt: LocalDateTime, expiresAt: LocalDateTime) {
+        issuanceAttemptId = attemptId
+        status = IssuanceStatus.ISSUED
+        this.issuedAt = issuedAt
+        this.expiresAt = expiresAt
+        usedAt = null
     }
 }

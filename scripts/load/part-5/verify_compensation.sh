@@ -39,7 +39,7 @@ done
 COUPON_ID="$CID" ./scripts/load/part-5/drift_report.sh
 
 check "보상 처리된 건수" "$(comp_metric compensationTotal)" "$COUNT"
-check "취소로 기록된 발급 수" "$(mysql_scalar "SELECT COUNT(*) FROM issuance WHERE coupon_id=$CID AND status='CANCELED'")" "$COUNT"
+check "취소 이력 수" "$(mysql_scalar "SELECT COUNT(*) FROM issuance_history WHERE coupon_id=$CID AND status='CANCELED'")" "$COUNT"
 check "재고가 원래 수량으로 복구됨" "$(redis_cli GET "coupon:$CID:stock")" "5000"
 check "발급자 명단에서 제거됨(명)" "$(redis_cli SCARD "coupon:$CID:users")" "0"
 

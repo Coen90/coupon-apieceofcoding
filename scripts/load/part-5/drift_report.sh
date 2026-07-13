@@ -24,7 +24,7 @@ fi
 total="$(mysql_scalar "SELECT total_quantity FROM coupon WHERE id = $COUPON_ID")"
 issued="$(mysql_scalar "SELECT issued_quantity FROM coupon WHERE id = $COUPON_ID")"
 issued_rows="$(mysql_scalar "SELECT COUNT(*) FROM issuance WHERE coupon_id = $COUPON_ID AND status = 'ISSUED'")"
-canceled_rows="$(mysql_scalar "SELECT COUNT(*) FROM issuance WHERE coupon_id = $COUPON_ID AND status = 'CANCELED'")"
+canceled_rows="$(mysql_scalar "SELECT COUNT(*) FROM issuance_history WHERE coupon_id = $COUPON_ID AND status = 'CANCELED'")"
 stock="$(redis_cli GET "coupon:$COUPON_ID:stock")"
 users="$(redis_cli SCARD "coupon:$COUPON_ID:users")"
 sold_out="$(redis_cli EXISTS "coupon:$COUPON_ID:sold_out")"
@@ -40,7 +40,7 @@ gap_text() { (( $1 == 0 )) && printf '총 %s 과 일치' "$total" || printf '총
 
 printf '\n\033[1;36m===== 쿠폰 %s번 상태 점검 =====\033[0m\n' "$COUPON_ID"
 printf '  총 수량              : %s\n' "$total"
-printf '  DB 발급 수           : %s   (정상 %s건, 취소 %s건)\n' "$issued" "$issued_rows" "$canceled_rows"
+printf '  DB 발급 수           : %s   (현재 ISSUED %s건, 취소 이력 %s건)\n' "$issued" "$issued_rows" "$canceled_rows"
 printf '  Redis 남은 재고      : %s\n' "$stock"
 printf '  Redis 발급자 명단    : %s명\n' "$users"
 printf '  매진 표시            : %s\n' "$sold_label"

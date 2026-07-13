@@ -29,3 +29,15 @@ CREATE TABLE issuance (
     KEY idx_issuance_status (status),
     KEY idx_issuance_coupon (coupon_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE issuance_history (
+    id                  BIGINT       NOT NULL AUTO_INCREMENT,
+    issuance_attempt_id VARCHAR(36)  NOT NULL,
+    user_id             BIGINT       NOT NULL,
+    coupon_id           BIGINT       NOT NULL,
+    status              VARCHAR(16)  NOT NULL,
+    reason              VARCHAR(64)  NOT NULL,
+    recorded_at         DATETIME(3)  NOT NULL,
+    PRIMARY KEY (id),
+    KEY idx_issuance_history_user_coupon (user_id, coupon_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
