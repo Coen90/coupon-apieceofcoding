@@ -7,6 +7,7 @@ import com.apiece.coupon.domain.CouponRepository
 import com.apiece.coupon.domain.Issuance
 import com.apiece.coupon.domain.IssuanceHistoryRepository
 import com.apiece.coupon.domain.IssuanceRepository
+import com.apiece.coupon.domain.IssuanceHistoryRepository
 import com.apiece.coupon.domain.IssuanceStatus
 import io.mockk.every
 import io.mockk.mockk
