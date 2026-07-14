@@ -5,6 +5,7 @@ import com.apiece.coupon.domain.CompensationLogRepository
 import com.apiece.coupon.domain.CompensationReason
 import com.apiece.coupon.domain.CouponRepository
 import com.apiece.coupon.domain.Issuance
+import com.apiece.coupon.domain.IssuanceHistoryRepository
 import com.apiece.coupon.domain.IssuanceRepository
 import com.apiece.coupon.domain.IssuanceStatus
 import io.mockk.every
@@ -20,13 +21,15 @@ class CompensationTransactionalWriterTest {
     private val issuanceRepository = mockk<IssuanceRepository>(relaxed = true)
     private val couponRepository = mockk<CouponRepository>(relaxed = true)
     private val compensationLogRepository = mockk<CompensationLogRepository>(relaxed = true)
+    private val issuanceHistoryRepository = mockk<IssuanceHistoryRepository>(relaxed = true)
     private val writer = CompensationTransactionalWriter(
-        issuanceRepository, couponRepository, compensationLogRepository,
+        issuanceRepository, couponRepository, compensationLogRepository, issuanceHistoryRepository,
     )
 
     init {
         // 제네릭 save(S): S 는 relaxed 가 Object 를 돌려줘 캐스팅에서 터지므로 인자를 그대로 반환.
         every { compensationLogRepository.save(any()) } answers { firstArg() }
+        every { issuanceHistoryRepository.save(any()) } answers { firstArg() }
     }
 
     private fun command(id: String = "c1") = CompensationCommand(
@@ -75,6 +78,7 @@ class CompensationTransactionalWriterTest {
     fun `기존 행 없으면 CANCELED 행 사후 INSERT + issued_quantity 손대지 않음`() {
         every { compensationLogRepository.existsById("c1") } returns false
         every { issuanceRepository.findByIssuanceAttemptId("c1") } returns null
+        every { issuanceRepository.findByUserIdAndCouponId(42L, 1L) } returns null
         val saveSlot = slot<Issuance>()
         every { issuanceRepository.save(capture(saveSlot)) } answers { saveSlot.captured.apply { id = 99L } }
 
