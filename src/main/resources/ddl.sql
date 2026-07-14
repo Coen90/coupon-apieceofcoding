@@ -41,3 +41,24 @@ CREATE TABLE issuance_history (
     PRIMARY KEY (id),
     KEY idx_issuance_history_user_coupon (user_id, coupon_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE dlt_inbox (
+    id                  BIGINT        NOT NULL AUTO_INCREMENT,
+    message_key         VARCHAR(200)  NOT NULL,
+    dlt_partition       INT           NOT NULL,
+    dlt_offset          BIGINT        NOT NULL,
+    coupon_id           BIGINT        NOT NULL,
+    user_id             BIGINT        NOT NULL,
+    issuance_attempt_id VARCHAR(36)   NOT NULL,
+    issued_at           DATETIME(3)   NOT NULL,
+    expires_at          DATETIME(3)   NOT NULL,
+    failure_reason      VARCHAR(1000) NULL,
+    status              VARCHAR(16)   NOT NULL DEFAULT 'PENDING',
+    decision_reason     VARCHAR(64)   NULL,
+    received_at         DATETIME(3)   NOT NULL,
+    resolved_at         DATETIME(3)   NULL,
+    version             BIGINT        NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_dlt_inbox_message_key (message_key),
+    KEY idx_dlt_inbox_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

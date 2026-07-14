@@ -49,8 +49,10 @@ scripts/load/part-3/kafka_dlt_peek.sh   # DLT 확인 (3-2c)
 # part-5 (보상 + 정합): 부하보다 "주입 + 검증"
 ./scripts/load/part-5/run.sh                  # 5-0 주입 후 drift 잔존 (베이스라인)
 ./scripts/load/part-5/verify_compensation.sh  # 5-1 운영자 보상 + 멱등성
-./scripts/load/part-5/dlt_replay.sh           # DLT 원문 확인 후 같은 issuanceAttemptId 재처리
+./scripts/load/part-5/dlt_replay.sh           # DLT inbox 확인 후 메시지 ID로 같은 issuanceAttemptId 재처리
 ./scripts/load/part-5/verify_reconcile.sh     # 5-2 lease 대사 + 자동 보정 + 알람
 ```
 
 part-5 는 두 등식 `total = 발급누적 + Redis재고 = Redis사용자 + Redis재고` 의 잔차로 불일치를 잰다. p5-1 이상에서는 모든 issuance 주입 이벤트에 발급 시도별 `issuanceAttemptId`를 넣는다. `force_dlt` 는 DB 측(알람 대상), `force_db_only` 는 목록 측(자동 보정 대상)을 깬다.
+
+DLT는 `dlt-operator-inbox` consumer가 `dlt_inbox`에 저장한 뒤 offset을 커밋한다. 운영자는 `GET /admin/dlt/messages`로 목록을 보고 메시지 ID를 replay 또는 compensate API에 전달한다.

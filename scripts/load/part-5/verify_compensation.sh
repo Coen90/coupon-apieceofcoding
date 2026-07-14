@@ -10,6 +10,15 @@ USER_BASE="${USER_BASE:-900000}"
 
 comp_metric() { curl -fsS "$BASE/metrics/compensation" | jq -r ".$1"; }
 
+wait_dlt_id() { # issuanceAttemptId [timeout=30]
+  for _ in $(seq 1 "${2:-30}"); do
+    id=$(curl -fsS "$BASE/admin/dlt/messages" | jq -r --arg attempt "$1" '.[] | select(.issuanceAttemptId == $attempt) | .id' | head -1)
+    [[ -n "$id" ]] && { printf '%s' "$id"; return 0; }
+    sleep 1
+  done
+  return 1
+}
+
 wait_issued_row() { # couponId userId [timeout=30]
   for _ in $(seq 1 "${3:-30}"); do
     [[ "$(mysql_scalar "SELECT COUNT(*) FROM issuance WHERE coupon_id=$1 AND user_id=$2 AND status='ISSUED'")" == "1" ]] && return 0
@@ -32,9 +41,8 @@ printf 'DLT를 확인했다고 가정하고 issuanceAttemptId별 수동 보상�
 for i in $(seq 1 "$COUNT"); do
   uid=$((USER_BASE + i))
   issuance_attempt_id="$(redis_cli GET "coupon:$CID:issuance-attempt:$uid")"
-  curl -fsS -X POST "$BASE/admin/dlt/compensate" \
-    -H 'Content-Type: application/json' \
-    -d "{\"couponId\":$CID,\"userId\":$uid,\"issuanceAttemptId\":\"$issuance_attempt_id\"}" >/dev/null
+  dlt_id="$(wait_dlt_id "$issuance_attempt_id")" || ng "DLT inbox에 메시지가 들어오길 기다리다 실패"
+  curl -fsS -X POST "$BASE/admin/dlt/messages/$dlt_id/compensate" >/dev/null
 done
 COUPON_ID="$CID" ./scripts/load/part-5/drift_report.sh
 
