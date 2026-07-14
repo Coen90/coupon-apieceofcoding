@@ -8,7 +8,7 @@ import io.mockk.just
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.jupiter.api.Test
-import org.springframework.dao.DataIntegrityViolationException
+import org.junit.jupiter.api.assertThrows
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -23,7 +23,7 @@ class CompensationServiceTest {
         couponId = 1L,
         userId = 42L,
         issuanceAttemptId = id,
-        reason = CompensationReason.DLT_REPLAY,
+        reason = CompensationReason.OPERATOR_MANUAL,
     )
 
     @Test
@@ -66,14 +66,11 @@ class CompensationServiceTest {
     }
 
     @Test
-    fun `동시 INSERT 로 PK 충돌나도 Redis 단계로 진행 (Lua 가 0 흡수)`() {
-        every { writer.applyDbStep(any()) } throws DataIntegrityViolationException("dup pk")
-        every { redis.compensate(any(), any(), any()) } returns 0L
+    fun `DB 반영이 실패하면 Redis를 되돌리지 않음`() {
+        every { writer.applyDbStep(any()) } throws IllegalStateException("db failed")
 
-        val result = service.compensate(command())
+        assertThrows<IllegalStateException> { service.compensate(command()) }
 
-        assertFalse(result)
-        verify(exactly = 1) { redis.compensate(1L, 42L, "operation-1") }
-        verify(exactly = 1) { metrics.incrementIdempotentHit() }
+        verify(exactly = 0) { redis.compensate(any(), any(), any()) }
     }
 }
