@@ -1,7 +1,8 @@
 package com.apiece.coupon.domain
 
-enum class DltInboxStatus {
+enum class IssuanceDltStatus {
     PENDING,
     REPLAYED,
     COMPENSATED,
+    QUARANTINED,
 }
