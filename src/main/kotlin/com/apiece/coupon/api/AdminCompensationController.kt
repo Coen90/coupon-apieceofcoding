@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping("/admin/compensate")
+@RequestMapping("/admin/dlt/compensate")
 class AdminCompensationController(
     private val compensationService: CompensationService,
 ) {

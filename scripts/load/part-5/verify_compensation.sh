@@ -32,7 +32,7 @@ printf 'DLT를 확인했다고 가정하고 issuanceAttemptId별 수동 보상�
 for i in $(seq 1 "$COUNT"); do
   uid=$((USER_BASE + i))
   issuance_attempt_id="$(redis_cli GET "coupon:$CID:issuance-attempt:$uid")"
-  curl -fsS -X POST "$BASE/admin/compensate" \
+  curl -fsS -X POST "$BASE/admin/dlt/compensate" \
     -H 'Content-Type: application/json' \
     -d "{\"couponId\":$CID,\"userId\":$uid,\"issuanceAttemptId\":\"$issuance_attempt_id\"}" >/dev/null
 done
@@ -51,8 +51,8 @@ wait_issued_row "$CID" "$TEST_UID" || ng "발급이 DB 에 기록되길 기다�
 stock_before="$(redis_cli GET "coupon:$CID:stock")"
 issuance_attempt_id="$(mysql_scalar "SELECT issuance_attempt_id FROM issuance WHERE coupon_id=$CID AND user_id=$TEST_UID")"
 body="{\"couponId\":$CID,\"userId\":$TEST_UID,\"issuanceAttemptId\":\"$issuance_attempt_id\"}"
-r1=$(curl -fsS -X POST "$BASE/admin/compensate" -H 'Content-Type: application/json' -d "$body" | jq -r '.compensated')
-r2=$(curl -fsS -X POST "$BASE/admin/compensate" -H 'Content-Type: application/json' -d "$body" | jq -r '.compensated')
+r1=$(curl -fsS -X POST "$BASE/admin/dlt/compensate" -H 'Content-Type: application/json' -d "$body" | jq -r '.compensated')
+r2=$(curl -fsS -X POST "$BASE/admin/dlt/compensate" -H 'Content-Type: application/json' -d "$body" | jq -r '.compensated')
 check "첫 호출은 실제로 되돌림" "$r1" "true"
 check "두 번째 같은 요청은 무시됨" "$r2" "false"
 check "재고가 딱 1만 늘어남 (이중 보상 없음)" "$(redis_cli GET "coupon:$CID:stock")" "$(( stock_before + 1 ))"
@@ -68,7 +68,7 @@ wait_issued_row "$SCID" 1 || true
 check "발급 직후 '매진' 표시됨" "$(redis_cli EXISTS "coupon:$SCID:sold_out")" "1"
 check "발급 직후 재고 0" "$(redis_cli GET "coupon:$SCID:stock")" "0"
 
-curl -fsS -X POST "$BASE/admin/compensate" -H 'Content-Type: application/json' \
+curl -fsS -X POST "$BASE/admin/dlt/compensate" -H 'Content-Type: application/json' \
   -d "{\"couponId\":$SCID,\"userId\":1,\"issuanceAttemptId\":\"$(mysql_scalar "SELECT issuance_attempt_id FROM issuance WHERE coupon_id=$SCID AND user_id=1")\"}" >/dev/null
 check "보상 후 '매진' 표시 풀림" "$(redis_cli EXISTS "coupon:$SCID:sold_out")" "0"
 check "보상 후 재고 1장 복구" "$(redis_cli GET "coupon:$SCID:stock")" "1"
