@@ -7,19 +7,18 @@
 -- ARGV[1] = userId
 -- ARGV[2] = idempotencyTtlSeconds
 -- ARGV[3] = issuanceAttemptId
--- 반환: 1=실제 보상, 0=중복 또는 다른 발급
+-- 반환: 1=실제 보상, 0=이미 보상, -1=다른 발급
 
 -- 오래된 DLT가 새 발급을 되돌리지 않도록 현재 발급 세대를 먼저 확인한다.
 if redis.call('GET', KEYS[5]) ~= ARGV[3] then
-  return 0
+  if redis.call('EXISTS', KEYS[4]) == 1 then
+    return 0
+  end
+  return -1
 end
 
 -- DB만 성공했던 부분 실패는 Redis 키가 없으므로 여기서 한 번 복구할 수 있다.
 if redis.call('SET', KEYS[4], '1', 'NX', 'EX', ARGV[2]) == false then
-  return 0
-end
-
-if redis.call('SISMEMBER', KEYS[2], ARGV[1]) == 0 then
   return 0
 end
 

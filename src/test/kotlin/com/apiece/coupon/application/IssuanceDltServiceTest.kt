@@ -15,8 +15,8 @@ import org.apache.kafka.common.header.internals.RecordHeader
 import org.junit.jupiter.api.Test
 import org.springframework.kafka.support.KafkaHeaders
 import java.time.LocalDateTime
-import java.util.Optional
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class IssuanceDltServiceTest {
     private val repository = mockk<IssuanceDltLogRepository>(relaxed = true)
@@ -102,13 +102,27 @@ class IssuanceDltServiceTest {
     @Test
     fun `대기 중인 로그를 보상하면 정책 취소로 기록`() {
         val log = log(status = IssuanceDltStatus.PENDING)
-        every { repository.findById(1L) } returns Optional.of(log)
+        every { repository.findByIdForUpdate(1L) } returns log
         every { compensationService.compensate(any()) } returns true
 
         val result = service.compensate(1L)
 
         assertEquals(IssuanceDltStatus.COMPENSATED, result.status)
         assertEquals("POLICY_CANCELED", result.decisionReason)
+    }
+
+    @Test
+    fun `발급 식별자가 없는 로그는 보상하지 않음`() {
+        val log = log(status = IssuanceDltStatus.QUARANTINED).apply {
+            couponId = null
+            userId = null
+            issuanceAttemptId = null
+        }
+        every { repository.findByIdForUpdate(1L) } returns log
+
+        assertFailsWith<IllegalStateException> { service.compensate(1L) }
+
+        verify(exactly = 0) { compensationService.compensate(any()) }
     }
 
     private fun record() = ConsumerRecord(

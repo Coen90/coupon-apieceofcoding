@@ -21,6 +21,18 @@ interface ReconcileCheckpointRepository : JpaRepository<ReconcileCheckpoint, Str
 
     @Modifying
     @Query(
+        "UPDATE ReconcileCheckpoint c SET c.leaseUntilMs = :leaseUntil " +
+            "WHERE c.jobName = :jobName AND c.leaseOwner = :owner AND c.leaseUntilMs >= :now",
+    )
+    fun renewLease(
+        @Param("jobName") jobName: String,
+        @Param("owner") owner: String,
+        @Param("now") now: Long,
+        @Param("leaseUntil") leaseUntil: Long,
+    ): Int
+
+    @Modifying
+    @Query(
         "UPDATE ReconcileCheckpoint c SET c.lastSuccessCutoffMs = :cutoff " +
             "WHERE c.jobName = :jobName AND c.leaseOwner = :owner",
     )
