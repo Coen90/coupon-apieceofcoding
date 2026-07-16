@@ -82,14 +82,14 @@ class IssuanceDltService(
         check(log.status == IssuanceDltStatus.PENDING || log.status == IssuanceDltStatus.QUARANTINED) {
             "Only pending or quarantined DLT logs can be compensated: $id"
         }
-        check(log.couponId != null && log.userId != null && log.issuanceAttemptId != null) {
-            "DLT log without issuance identifiers cannot be compensated: $id"
-        }
+        val couponId = checkNotNull(log.couponId) { "DLT log has no coupon id: $id" }
+        val userId = checkNotNull(log.userId) { "DLT log has no user id: $id" }
+        val issuanceAttemptId = checkNotNull(log.issuanceAttemptId) { "DLT log has no issuance attempt id: $id" }
         compensationService.compensate(
             CompensationCommand(
-                couponId = log.couponId!!,
-                userId = log.userId!!,
-                issuanceAttemptId = log.issuanceAttemptId!!,
+                couponId = couponId,
+                userId = userId,
+                issuanceAttemptId = issuanceAttemptId,
                 reason = CompensationReason.OPERATOR_MANUAL,
                 issuedAt = log.issuedAt,
                 expiresAt = log.expiresAt,
