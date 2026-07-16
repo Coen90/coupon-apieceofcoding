@@ -85,7 +85,7 @@ class Reconciler(
         val report = ReconcileReport(
             checkedCoupons = couponIds.size,
             autoFixed = outcomes.sumOf { it.autoFixed },
-            driftAlerts = outcomes.count { it.confirmedDbDrift > 0 },
+            driftAlerts = outcomes.count { it.confirmedDbDrift > 0 || it.listDriftAlert },
             redisDbDrift = outcomes.sumOf { it.confirmedDbDrift },
             stockNegative = outcomes.count { it.stockNegative },
             failedCoupons = outcomes.count { it.failed },
@@ -117,15 +117,22 @@ class Reconciler(
             log.info { "auto-fix: 매진 플래그 설정 coupon=$couponId" }
         }
 
-        // 목록 측만 부족(= Redis 휘발)이면 DB ISSUED 기준 SADD. stock 을 안 건드려 과발급을 못 만들어 안전.
+        var listDriftAlert = false
+        // 목록 측만 부족하면 CANCELED가 아닌 DB 사용자 기준으로 복구한다.
         if (s.listResidual > 0 && s.dbResidual == 0L) {
-            val missing = issuanceRepository.findIssuedUserIds(couponId) -
+            val missing = issuanceRepository.findNonCanceledUserIds(couponId) -
                 reconcileRedisRepository.userIds(couponId).mapNotNull { it.toLongOrNull() }.toSet()
-            if (missing.isNotEmpty()) {
+            if (missing.size.toLong() == s.listResidual) {
                 reconcileRedisRepository.addUsers(couponId, missing)
                 autoFixed++
                 log.info { "auto-fix: 사용자 목록 SADD ${missing.size}건 coupon=$couponId" }
+            } else {
+                listDriftAlert = true
+                log.warn { "Redis 사용자 목록을 안전하게 복구할 수 없음 coupon=$couponId" }
             }
+        } else if (s.listResidual < 0) {
+            listDriftAlert = true
+            log.warn { "Redis 사용자 목록 초과 감지 coupon=$couponId residual=${s.listResidual}" }
         }
 
         // DB 측 불일치는 자동 보정이 과발급/회수를 부를 수 있어 알람만.
@@ -135,7 +142,7 @@ class Reconciler(
             log.warn { "DB 측 불일치 감지 coupon=$couponId residual=${s.dbResidual} (자동 보정 불가, 사람 확인)" }
         }
 
-        return CouponOutcome(autoFixed, confirmedDbDrift, stockNegative)
+        return CouponOutcome(autoFixed, confirmedDbDrift, stockNegative, listDriftAlert)
     }
 
     private fun readSnapshot(couponId: Long): ReconcileSnapshot? {
@@ -154,6 +161,7 @@ class Reconciler(
         val autoFixed: Int = 0,
         val confirmedDbDrift: Long = 0L,
         val stockNegative: Boolean = false,
+        val listDriftAlert: Boolean = false,
         val failed: Boolean = false,
     )
 }
