@@ -14,7 +14,8 @@ class IssuanceWriter(
         try {
             transactional.insertAndIncrement(event)
         } catch (e: DataIntegrityViolationException) {
-            log.debug { "UNIQUE 위반은 멱등 처리: couponId=${event.couponId}, userId=${event.userId}" }
+            if (!transactional.isAlreadyApplied(event)) throw e
+            log.debug { "이미 저장된 발급 시도는 멱등 처리: issuanceAttemptId=${event.issuanceAttemptId}" }
         }
     }
 }
