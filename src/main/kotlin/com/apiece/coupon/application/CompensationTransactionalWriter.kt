@@ -7,8 +7,8 @@ import com.apiece.coupon.domain.IssuanceHistoryRepository
 import com.apiece.coupon.domain.IssuanceRepository
 import com.apiece.coupon.domain.IssuanceStatus
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.annotation.Propagation
+import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
 
 // 보상의 DB 단계. issuance 최신 상태와 Redis Lua 키가 중복 실행을 막는다.
@@ -19,6 +19,7 @@ class CompensationTransactionalWriter(
     private val issuanceHistoryRepository: IssuanceHistoryRepository,
 ) {
 
+    // DLT 로그 잠금과 별도 트랜잭션으로 실행해 Redis보다 먼저 커밋한다.
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     fun applyDbStep(command: CompensationCommand) {
         val now = LocalDateTime.now()
@@ -42,29 +43,29 @@ class CompensationTransactionalWriter(
                     error("Used or expired issuance cannot be canceled: ${command.issuanceAttemptId}")
             }
             return
-        } else {
-            val current = issuanceRepository.findByUserIdAndCouponId(command.userId, command.couponId)
-            check(current == null) { "A newer issuance already exists: ${command.issuanceAttemptId}" }
+        }
 
-            // Worker INSERT가 실패해 행이 없는 케이스: CANCELED로 사후 기록한다.
-            issuanceRepository.save(
-                Issuance(
-                    userId = command.userId,
-                    couponId = command.couponId,
-                    issuanceAttemptId = command.issuanceAttemptId,
-                    issuedAt = command.issuedAt ?: now,
-                    expiresAt = command.expiresAt ?: now,
-                    status = IssuanceStatus.CANCELED,
-                ),
-            )
-            issuanceHistoryRepository.save(IssuanceHistory(
-                issuanceAttemptId = command.issuanceAttemptId,
+        val current = issuanceRepository.findByUserIdAndCouponId(command.userId, command.couponId)
+        check(current == null) { "A newer issuance already exists: ${command.issuanceAttemptId}" }
+
+        // Worker INSERT가 실패해 행이 없는 케이스: CANCELED로 사후 기록한다.
+        issuanceRepository.save(
+            Issuance(
                 userId = command.userId,
                 couponId = command.couponId,
+                issuanceAttemptId = command.issuanceAttemptId,
+                issuedAt = command.issuedAt ?: now,
+                expiresAt = command.expiresAt ?: now,
                 status = IssuanceStatus.CANCELED,
-                reason = command.reason.name,
-                recordedAt = now,
-            ))
-        }
+            ),
+        )
+        issuanceHistoryRepository.save(IssuanceHistory(
+            issuanceAttemptId = command.issuanceAttemptId,
+            userId = command.userId,
+            couponId = command.couponId,
+            status = IssuanceStatus.CANCELED,
+            reason = command.reason.name,
+            recordedAt = now,
+        ))
     }
 }
