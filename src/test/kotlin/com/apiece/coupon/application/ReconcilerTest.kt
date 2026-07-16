@@ -60,7 +60,7 @@ class ReconcilerTest {
     fun `목록 측 휘발이면 DB 의 누락 user_id 를 SADD 자동 보정`() {
         // issued 10, stock 4990 -> DB 측 정합. users 0 -> 목록 측 +10.
         setup(total = 5000, issued = 10, stock = 4990, users = 0, soldOut = false)
-        every { issuanceRepository.findIssuedUserIds(couponId) } returns (1L..10L).toList()
+        every { issuanceRepository.findNonCanceledUserIds(couponId) } returns (1L..10L).toList()
         every { redis.userIds(couponId) } returns emptySet()
 
         val report = reconciler.reconcileAll()
@@ -98,6 +98,28 @@ class ReconcilerTest {
 
         verify(exactly = 0) { redis.addUsers(any(), any()) }
         assert(report.driftAlerts == 1 && report.redisDbDrift == 10L)
+    }
+
+    @Test
+    fun `Redis 사용자 목록이 DB보다 많으면 삭제하지 않고 알람`() {
+        setup(total = 5000, issued = 10, stock = 4990, users = 11, soldOut = false)
+
+        val report = reconciler.reconcileAll()
+
+        verify(exactly = 0) { redis.addUsers(any(), any()) }
+        assert(report.autoFixed == 0 && report.driftAlerts == 1)
+    }
+
+    @Test
+    fun `누락 수와 DB 사용자가 맞지 않으면 자동 보정하지 않고 알람`() {
+        setup(total = 5000, issued = 10, stock = 4990, users = 9, soldOut = false)
+        every { issuanceRepository.findNonCanceledUserIds(couponId) } returns (1L..10L).toList()
+        every { redis.userIds(couponId) } returns (1L..8L).map { it.toString() }.toSet()
+
+        val report = reconciler.reconcileAll()
+
+        verify(exactly = 0) { redis.addUsers(any(), any()) }
+        assert(report.autoFixed == 0 && report.driftAlerts == 1)
     }
 
     @Test

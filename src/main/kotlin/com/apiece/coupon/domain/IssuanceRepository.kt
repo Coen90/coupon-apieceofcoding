@@ -15,7 +15,8 @@ interface IssuanceRepository : JpaRepository<Issuance, Long> {
 
     @Query(
         "SELECT i.userId FROM Issuance i " +
-            "WHERE i.couponId = :couponId AND i.status = com.apiece.coupon.domain.IssuanceStatus.ISSUED",
+            "WHERE i.couponId = :couponId " +
+            "AND i.status <> com.apiece.coupon.domain.IssuanceStatus.CANCELED",
     )
-    fun findIssuedUserIds(@Param("couponId") couponId: Long): List<Long>
+    fun findNonCanceledUserIds(@Param("couponId") couponId: Long): List<Long>
 }
