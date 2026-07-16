@@ -73,4 +73,15 @@ class CompensationServiceTest {
 
         verify(exactly = 0) { redis.compensate(any(), any(), any()) }
     }
+
+    @Test
+    fun `현재 발급이 다르면 보상 완료로 처리하지 않음`() {
+        every { writer.applyDbStep(any()) } just Runs
+        every { redis.compensate(any(), any(), any()) } returns -1L
+
+        assertThrows<IllegalStateException> { service.compensate(command()) }
+
+        verify(exactly = 0) { metrics.incrementCompensated() }
+        verify(exactly = 0) { metrics.incrementIdempotentHit() }
+    }
 }

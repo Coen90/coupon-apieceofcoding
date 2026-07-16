@@ -23,13 +23,19 @@ class ReconcileCheckpointStore(
         return repository.acquireLease(jobName, owner, now, now + properties.leaseMs) == 1
     }
 
+    @Transactional
+    fun renew(): Boolean {
+        val now = System.currentTimeMillis()
+        return repository.renewLease(jobName, owner, now, now + properties.leaseMs) == 1
+    }
+
     @Transactional(readOnly = true)
     fun lastSuccessCutoffMs(): Long =
         repository.findById(jobName).orElse(ReconcileCheckpoint(jobName)).lastSuccessCutoffMs
 
     @Transactional
     fun markSuccess(cutoffMs: Long) {
-        repository.saveSuccess(jobName, owner, cutoffMs)
+        check(repository.saveSuccess(jobName, owner, cutoffMs) == 1) { "reconcile lease lost" }
     }
 
     @Transactional

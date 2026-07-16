@@ -126,6 +126,7 @@ class ReconcilerTest {
     fun `전수 audit 은 Redis 색인 대신 DB 의 모든 쿠폰을 검사`() {
         val coupon = Coupon(name = "t", totalQuantity = 10, issuedQuantity = 0, id = couponId)
         every { checkpointStore.acquire() } returns true
+        every { checkpointStore.renew() } returns true
         every { couponRepository.findAll() } returns listOf(coupon)
         every { couponRepository.findById(couponId) } returns Optional.of(coupon)
         every { redis.stock(couponId) } returns 10

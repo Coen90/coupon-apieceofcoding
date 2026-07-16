@@ -55,13 +55,13 @@ elif (( db_gap > 0 && list_gap == 0 )); then
   printf '\033[1;33m  => DB 가 %s건 덜 세고 있어요. 발급은 됐는데 DB 저장이 실패한 경우입니다\n' "$db_gap"
   printf '     (사용자에겐 발급 성공 응답이 이미 나갔어요).\n'
   printf '     - DLT를 먼저 확인하세요. 장애가 복구되면 같은 issuanceAttemptId로 재처리하고,\n'
-  printf '       데이터 오류나 정책상 취소만 보상합니다.\n'
+  printf '       식별 가능한 데이터 오류나 정책상 취소만 보상합니다.\n'
   printf '       (reconcile은 DB 측을 함부로 자동 보정하지 않고 알람만 띄웁니다.)\n'
   printf '     - DLT가 없거나 원인을 모르면 사람이 직접 상태를 확인합니다.\n'
   printf '       [사람이 할 일]\n'
   printf '         1) GET /admin/issuance/dlt 로 무엇이 왜 실패했는지 확인\n'
   printf '         2) 장애가 복구됐으면 POST /admin/issuance/dlt/replay 로 일괄 재처리\n'
-  printf '            데이터 오류나 정책상 취소면 로그 ID로 보상:\n'
+  printf '            식별 가능한 데이터 오류나 정책상 취소면 로그 ID로 보상:\n'
   printf '              curl -X POST "localhost:8080/admin/issuance/dlt/compensate?id=<id>"\n'
   printf '            (재고를 1 되돌리고, 발급자 명단에서 빼고, 발급 기록을 취소로 남김)\033[0m\n'
 elif (( db_gap == 0 && list_gap > 0 )); then

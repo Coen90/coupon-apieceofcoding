@@ -75,17 +75,21 @@ class IssuanceDltService(
         return logs.size
     }
 
+    @Transactional
     fun compensate(id: Long): IssuanceDltLog {
-        val log = repository.findById(id).orElseThrow { IllegalArgumentException("DLT log not found: $id") }
+        val log = repository.findByIdForUpdate(id) ?: throw IllegalArgumentException("DLT log not found: $id")
         if (log.status == IssuanceDltStatus.COMPENSATED) return log
         check(log.status == IssuanceDltStatus.PENDING || log.status == IssuanceDltStatus.QUARANTINED) {
             "Only pending or quarantined DLT logs can be compensated: $id"
         }
+        check(log.couponId != null && log.userId != null && log.issuanceAttemptId != null) {
+            "DLT log without issuance identifiers cannot be compensated: $id"
+        }
         compensationService.compensate(
             CompensationCommand(
-                couponId = requireNotNull(log.couponId),
-                userId = requireNotNull(log.userId),
-                issuanceAttemptId = requireNotNull(log.issuanceAttemptId),
+                couponId = log.couponId!!,
+                userId = log.userId!!,
+                issuanceAttemptId = log.issuanceAttemptId!!,
                 reason = CompensationReason.OPERATOR_MANUAL,
                 issuedAt = log.issuedAt,
                 expiresAt = log.expiresAt,
