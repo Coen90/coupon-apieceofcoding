@@ -40,4 +40,10 @@ class IssuanceTransactionalWriter(
         ))
         couponRepository.incrementIssuedQuantity(event.couponId)
     }
+
+    @Transactional(readOnly = true)
+    fun isAlreadyApplied(event: IssuanceRequested): Boolean {
+        val issuance = issuanceRepository.findByIssuanceAttemptId(event.issuanceAttemptId) ?: return false
+        return issuance.userId == event.userId && issuance.couponId == event.couponId
+    }
 }
