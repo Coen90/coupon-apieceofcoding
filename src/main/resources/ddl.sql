@@ -65,3 +65,11 @@ CREATE TABLE issuance_dlt_log (
     KEY idx_issuance_dlt_status (status),
     KEY idx_issuance_dlt_attempt (issuance_attempt_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE reconcile_checkpoint (
+    job_name               VARCHAR(64) NOT NULL,
+    last_success_cutoff_ms BIGINT      NOT NULL DEFAULT 0,
+    lease_owner            VARCHAR(64) NULL,
+    lease_until_ms         BIGINT      NULL,
+    PRIMARY KEY (job_name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
