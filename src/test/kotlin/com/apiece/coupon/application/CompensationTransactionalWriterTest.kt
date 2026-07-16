@@ -13,6 +13,7 @@ import io.mockk.verify
 import org.junit.jupiter.api.Test
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class CompensationTransactionalWriterTest {
 
@@ -83,7 +84,7 @@ class CompensationTransactionalWriterTest {
     }
 
     @Test
-    fun `기존 행이 ISSUED 가 아니면 카운터 감소 없이 보상 기록만`() {
+    fun `사용한 발급은 보상하지 않음`() {
         val used = Issuance(
             userId = 42L, couponId = 1L,
             issuanceAttemptId = "c1",
@@ -92,9 +93,9 @@ class CompensationTransactionalWriterTest {
         )
         every { issuanceRepository.findByIssuanceAttemptId("c1") } returns used
 
-        writer.applyDbStep(command())
+        assertFailsWith<IllegalStateException> { writer.applyDbStep(command()) }
 
-        assertEquals(IssuanceStatus.USED, used.status) // 전이 안 함
+        assertEquals(IssuanceStatus.USED, used.status)
         verify(exactly = 0) { couponRepository.decrementIssuedQuantity(any()) }
     }
 }

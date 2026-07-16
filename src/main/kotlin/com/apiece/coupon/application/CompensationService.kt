@@ -17,10 +17,19 @@ class CompensationService(
 
         // DB 멱등이어도 Redis 는 항상 호출한다. 부분 실패(DB 만 커밋)를 재시도 때 완결하기 위함이며,
         // Lua 의 2차 멱등 키가 진짜 중복은 0 으로 흡수한다.
-        val compensated = compensationRedisRepository.compensate(
+        val result = compensationRedisRepository.compensate(
             command.couponId, command.userId, command.issuanceAttemptId,
-        ) == 1L
-        if (compensated) metrics.incrementCompensated() else metrics.incrementIdempotentHit()
-        return compensated
+        )
+        return when (result) {
+            1L -> {
+                metrics.incrementCompensated()
+                true
+            }
+            0L -> {
+                metrics.incrementIdempotentHit()
+                false
+            }
+            else -> error("Current issuance does not match: ${command.issuanceAttemptId}")
+        }
     }
 }
