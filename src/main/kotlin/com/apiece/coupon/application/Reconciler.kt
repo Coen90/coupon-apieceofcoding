@@ -33,7 +33,7 @@ class Reconciler(
             // 첫 회차는 직전 cutoff가 없으니 한 칸(interval)만 거슬러 올라간다.
             val fromMs = checkpointStore.lastSuccessCutoffMs().takeIf { it > 0 }
                 ?: (cutoffMs - reconcileProperties.intervalMs)
-            val report = reconcileWindow(fromMs, cutoffMs)
+            val report = reconcileWindow(fromMs, cutoffMs, renewLease = true)
             // 실패한 쿠폰이 있으면 같은 구간을 다음 회차에 다시 본다.
             if (report.failedCoupons == 0) checkpointStore.markSuccess(cutoffMs)
         } finally {
@@ -52,20 +52,29 @@ class Reconciler(
         if (!checkpointStore.acquire()) return ReconcileReport(0, 0, 0, 0L, 0)
         return try {
             val couponIds = couponRepository.findAll().mapNotNull { it.id }
-            reconcileCoupons(couponIds)
+            reconcileCoupons(couponIds, renewLease = true)
         } finally {
             checkpointStore.release()
         }
     }
 
     // 발급 시각이 (fromExclusiveMs, toInclusiveMs] 에 든 쿠폰만 검사한다.
-    private fun reconcileWindow(fromExclusiveMs: Long, toInclusiveMs: Long): ReconcileReport {
+    private fun reconcileWindow(
+        fromExclusiveMs: Long,
+        toInclusiveMs: Long,
+        renewLease: Boolean = false,
+    ): ReconcileReport {
         val couponIds = reconcileRedisRepository.couponIdsIssuedBetween(fromExclusiveMs, toInclusiveMs)
-        return reconcileCoupons(couponIds)
+        return reconcileCoupons(couponIds, renewLease)
     }
 
-    private fun reconcileCoupons(couponIds: List<Long>): ReconcileReport {
+    private fun reconcileCoupons(couponIds: List<Long>, renewLease: Boolean = false): ReconcileReport {
+        var nextRenewAt = System.currentTimeMillis() + reconcileProperties.leaseMs / 3
         val outcomes = couponIds.map { couponId ->
+            if (renewLease && System.currentTimeMillis() >= nextRenewAt) {
+                check(checkpointStore.renew()) { "reconcile lease lost" }
+                nextRenewAt = System.currentTimeMillis() + reconcileProperties.leaseMs / 3
+            }
             try {
                 reconcileCoupon(couponId)
             } catch (e: Exception) {
