@@ -34,7 +34,8 @@ for i in $(seq 1 "$COUNT"); do
   uid=$((USER_BASE + i))
   issuance_attempt_id="$(redis_cli GET "coupon:$CID:issuance-attempt:$uid")"
   dlt_id="$(wait_dlt_id "$issuance_attempt_id")" || ng "issuance_dlt_log에 메시지가 들어오길 기다리다 실패"
-  curl -fsS -X POST "$BASE/admin/issuance/dlt/compensate?id=$dlt_id" >/dev/null
+  curl -fsS -X POST "$BASE/admin/issuance/dlt/compensate" \
+    -H 'Content-Type: application/json' -d "{\"id\":$dlt_id}" >/dev/null
 done
 COUPON_ID="$CID" ./scripts/load/part-5/drift_report.sh
 
@@ -50,8 +51,10 @@ COUPON_ID="$CID" COUNT=1 USER_BASE=950000 ./scripts/load/part-5/force_dlt.sh >/d
 stock_before="$(redis_cli GET "coupon:$CID:stock")"
 issuance_attempt_id="$(redis_cli GET "coupon:$CID:issuance-attempt:$TEST_UID")"
 dlt_id="$(wait_dlt_id "$issuance_attempt_id")" || ng "issuance_dlt_log 대기 실패"
-r1=$(curl -fsS -X POST "$BASE/admin/issuance/dlt/compensate?id=$dlt_id" | jq -r '.status')
-r2=$(curl -fsS -X POST "$BASE/admin/issuance/dlt/compensate?id=$dlt_id" | jq -r '.status')
+r1=$(curl -fsS -X POST "$BASE/admin/issuance/dlt/compensate" \
+  -H 'Content-Type: application/json' -d "{\"id\":$dlt_id}" | jq -r '.status')
+r2=$(curl -fsS -X POST "$BASE/admin/issuance/dlt/compensate" \
+  -H 'Content-Type: application/json' -d "{\"id\":$dlt_id}" | jq -r '.status')
 check "첫 호출은 보상 완료" "$r1" "COMPENSATED"
 check "두 번째 호출도 같은 결과" "$r2" "COMPENSATED"
 check "재고가 딱 1만 늘어남 (이중 보상 없음)" "$(redis_cli GET "coupon:$CID:stock")" "$(( stock_before + 1 ))"
@@ -68,7 +71,8 @@ check "발급 직후 재고 0" "$(redis_cli GET "coupon:$SCID:stock")" "0"
 
 issuance_attempt_id="$(redis_cli GET "coupon:$SCID:issuance-attempt:1")"
 dlt_id="$(wait_dlt_id "$issuance_attempt_id")" || ng "issuance_dlt_log 대기 실패"
-curl -fsS -X POST "$BASE/admin/issuance/dlt/compensate?id=$dlt_id" >/dev/null
+curl -fsS -X POST "$BASE/admin/issuance/dlt/compensate" \
+  -H 'Content-Type: application/json' -d "{\"id\":$dlt_id}" >/dev/null
 check "보상 후 '매진' 표시 풀림" "$(redis_cli EXISTS "coupon:$SCID:sold_out")" "0"
 check "보상 후 재고 1장 복구" "$(redis_cli GET "coupon:$SCID:stock")" "1"
 check "매진 풀린 뒤 새 사용자 발급 성공(200)" \
