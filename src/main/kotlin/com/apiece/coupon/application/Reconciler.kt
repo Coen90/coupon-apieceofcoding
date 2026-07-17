@@ -23,7 +23,7 @@ class Reconciler(
     private val checkpointStore: ReconcileCheckpointStore,
 ) {
     @Scheduled(fixedRateString = "\${coupon.reconcile.interval-ms}")
-    fun scheduled() {
+    fun scheduledRecent() {
         if (!checkpointStore.acquire()) {
             log.info { "다른 인스턴스가 reconcile lease를 가지고 있어 이번 호출은 건너뜀" }
             return
@@ -41,6 +41,16 @@ class Reconciler(
         }
     }
 
+    @Scheduled(cron = "\${coupon.reconcile.audit-cron}")
+    fun scheduledAudit() {
+        val report = tryAuditAll()
+        if (report == null) {
+            log.info { "다른 인스턴스가 reconcile lease를 가지고 있어 일일 전수 audit을 건너뜀" }
+            return
+        }
+        log.info { "일일 전수 audit 완료 checked=${report.checkedCoupons} alerts=${report.driftAlerts}" }
+    }
+
     // 운영/검증용 수동 트리거: 하한 0 으로 지금까지 정착된 발급을 한 번에 훑는다 (스케줄 커서는 건드리지 않음).
     fun reconcileAll(): ReconcileReport {
         val cutoffMs = System.currentTimeMillis() - reconcileProperties.gracePeriodMs
@@ -48,8 +58,11 @@ class Reconciler(
     }
 
     // Redis ZSET을 잃어도 대상을 찾을 수 있도록 DB의 모든 쿠폰을 느리게 점검한다.
-    fun auditAll(): ReconcileReport {
-        if (!checkpointStore.acquire()) return ReconcileReport(0, 0, 0, 0L, 0)
+    fun auditAll(): ReconcileReport =
+        tryAuditAll() ?: ReconcileReport(0, 0, 0, 0L, 0)
+
+    private fun tryAuditAll(): ReconcileReport? {
+        if (!checkpointStore.acquire()) return null
         return try {
             val couponIds = couponRepository.findAll().mapNotNull { it.id }
             reconcileCoupons(couponIds, renewLease = true)
