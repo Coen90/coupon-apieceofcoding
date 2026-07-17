@@ -31,6 +31,14 @@ class ReconcilerTest {
 
     private val couponId = 1L
 
+    @Test
+    fun `전수 audit은 하루 한 번 실행하도록 설정`() {
+        val scheduled = Reconciler::class.java.getDeclaredMethod("scheduledAudit")
+            .getAnnotation(org.springframework.scheduling.annotation.Scheduled::class.java)
+
+        assert(scheduled.cron == "\${coupon.reconcile.audit-cron}")
+    }
+
     // total/issued 만 다른 쿠폰 한 건이 발급 window 에 들어온 상황을 세팅하고, Redis 값은 인자로 stub.
     private fun setup(
         total: Int, issued: Int,
