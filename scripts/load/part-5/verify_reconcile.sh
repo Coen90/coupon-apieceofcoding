@@ -11,7 +11,7 @@ recon_metric() { curl -fsS "$BASE/metrics/reconcile" | jq -r ".$1"; }
 reset_recon_metrics() { curl -fsS -X POST "$BASE/metrics/reconcile/reset" >/dev/null; }
 run_reconcile() { printf '점검 배치 1회 실행 결과: '; curl -fsS -X POST "$BASE/admin/reconcile/run" | jq -c '.'; }
 
-# kafka 를 비우고, 검증 동안 매 분 스케줄 reconcile 이 수동 트리거와 겹치지 않게 주기를 크게(1시간) 올려 재기동.
+# kafka 를 비우고, 검증 동안 최근 대사와 일일 전수 audit이 수동 트리거와 겹치지 않게 재기동.
 restart_service 3600000
 
 ############################################
