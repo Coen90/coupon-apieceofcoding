@@ -62,7 +62,7 @@ elif (( db_gap > 0 && list_gap == 0 )); then
   printf '         1) GET /admin/issuance/dlt 로 무엇이 왜 실패했는지 확인\n'
   printf '         2) 장애가 복구됐으면 POST /admin/issuance/dlt/replay 로 일괄 재처리\n'
   printf '            식별 가능한 데이터 오류나 정책상 취소면 로그 ID로 보상:\n'
-  printf '              curl -X POST "localhost:8080/admin/issuance/dlt/compensate?id=<id>"\n'
+  printf '              curl -X POST "localhost:8080/admin/issuance/dlt/compensate" -H "Content-Type: application/json" -d '\''{"id": <id>}'\''\n'
   printf '            (재고를 1 되돌리고, 발급자 명단에서 빼고, 발급 기록을 취소로 남김)\033[0m\n'
 elif (( db_gap == 0 && list_gap > 0 )); then
   printf '\033[1;33m  => Redis 발급자 명단에서 %s명이 비어 있어요. 명단만 날아간 경우라,\n' "$list_gap"
