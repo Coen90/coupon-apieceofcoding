@@ -25,6 +25,9 @@ class CompensationTransactionalWriter(
         val now = LocalDateTime.now()
         val existing = issuanceRepository.findByIssuanceAttemptId(command.issuanceAttemptId)
         if (existing != null) {
+            check(existing.userId == command.userId && existing.couponId == command.couponId) {
+                "Issuance does not match compensation target: ${command.issuanceAttemptId}"
+            }
             when (existing.status) {
                 IssuanceStatus.ISSUED -> {
                     existing.markCanceled()
