@@ -71,6 +71,23 @@ class CompensationTransactionalWriterTest {
     }
 
     @Test
+    fun `발급 시도는 같아도 사용자나 쿠폰이 다르면 보상하지 않음`() {
+        val issued = Issuance(
+            userId = 99L, couponId = 2L,
+            issuanceAttemptId = "c1",
+            issuedAt = LocalDateTime.now(), expiresAt = LocalDateTime.now().plusDays(7),
+            status = IssuanceStatus.ISSUED, id = 7L,
+        )
+        every { issuanceRepository.findByIssuanceAttemptId("c1") } returns issued
+
+        assertFailsWith<IllegalStateException> { writer.applyDbStep(command()) }
+
+        assertEquals(IssuanceStatus.ISSUED, issued.status)
+        verify(exactly = 0) { couponRepository.decrementIssuedQuantity(any()) }
+        verify(exactly = 0) { issuanceHistoryRepository.save(any()) }
+    }
+
+    @Test
     fun `기존 행 없으면 CANCELED 행 사후 INSERT + issued_quantity 손대지 않음`() {
         every { issuanceRepository.findByIssuanceAttemptId("c1") } returns null
         every { issuanceRepository.findByUserIdAndCouponId(42L, 1L) } returns null
