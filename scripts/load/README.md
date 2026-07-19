@@ -46,7 +46,7 @@ scripts/load/part-3/kafka_dlt_peek.sh   # DLT 확인 (3-2c)
 # part-4 (캐시 + 매진 상태)
 ./scripts/load/part-4/run.sh            # coupon | sellout | all
 
-# part-5 (보상 + 정합): 현재 브랜치의 시나리오를 한 번에 검증
+# part-5: 현재 브랜치의 5-0, 5-1, 5-2 시나리오를 자동 선택
 ./scripts/load/part-5/run.sh
 ```
 
