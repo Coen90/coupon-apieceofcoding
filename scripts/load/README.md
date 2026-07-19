@@ -30,7 +30,7 @@ docker compose up -d --force-recreate coupon-service
 part-2/   동시성: over_issuance.js, run.sh, verify.sh
 part-3/   큐 디커플링: issue_burst.js, verify_burst.sh, run.sh, kafka_lag.sh, kafka_dlt_peek.sh
 part-4/   캐시+매진 상태: coupon_burst.js, post_sellout_refresh.js, sell_out.sh, run.sh
-part-5/   보상+정합: force_dlt.sh, force_db_only.sh, drift_report.sh, dlt_replay.sh, run.sh, verify_compensation.sh, verify_reconcile.sh
+part-5/   보상+정합: force_dlt.sh, force_db_only.sh, drift_report.sh, run.sh
 part-6/   트래픽 제어 베이스라인: create_big_coupon.sh, issue_flood.js, run.sh
 ```
 
@@ -47,11 +47,8 @@ scripts/load/part-3/kafka_dlt_peek.sh   # DLT 확인 (3-2c)
 # part-4 (캐시 + 매진 상태)
 ./scripts/load/part-4/run.sh            # coupon | sellout | all
 
-# part-5 (보상 + 정합): 부하보다 "주입 + 검증"
-./scripts/load/part-5/run.sh                  # 5-0 주입 후 drift 잔존 (베이스라인)
-./scripts/load/part-5/verify_compensation.sh  # 5-1 운영자 보상 + 멱등성
-./scripts/load/part-5/dlt_replay.sh           # 장애 복구 후 대기 중인 DLT를 최대 100건 재처리
-./scripts/load/part-5/verify_reconcile.sh     # 5-2 lease 대사 + 자동 보정 + 알람
+# part-5 (보상 + 정합): 현재 브랜치의 시나리오를 한 번에 검증
+./scripts/load/part-5/run.sh
 
 # part-6 (트래픽 제어)
 ./scripts/load/part-6/run.sh   # 6-0 part-6-0-load-test: 매진 전 발급 폭주 베이스라인
