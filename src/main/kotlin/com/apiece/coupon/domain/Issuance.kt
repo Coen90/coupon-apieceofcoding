@@ -57,7 +57,4 @@ class Issuance(
         usedAt = now
     }
 
-    fun markExpired() {
-        status = IssuanceStatus.EXPIRED
-    }
 }
