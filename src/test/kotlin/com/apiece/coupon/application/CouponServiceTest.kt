@@ -25,7 +25,6 @@ class CouponServiceTest {
     private val couponIssuePolicyReader = mockk<CouponIssuePolicyReader>()
     private val couponIssuer = mockk<CouponIssuer>(relaxUnitFun = true)
     private val producer = mockk<IssuanceRequestProducer>(relaxUnitFun = true)
-    // 기본은 매진 아님. 매진 fast-path 분기는 별도 테스트에서 stub.
     private val soldOutState = mockk<SoldOutState>(relaxed = true)
     private val service = CouponService(couponRepository, couponIssuePolicyReader, couponIssuer, producer, soldOutState)
 
@@ -55,7 +54,7 @@ class CouponServiceTest {
         assertEquals(36, captured.captured.issuanceAttemptId.length)
         assertEquals(42L, result.userId)
         assertEquals(1L, result.couponId)
-        assertNull(result.id) // 비동기 흐름이라 DB id 없음
+        assertNull(result.id)
     }
 
     @Test

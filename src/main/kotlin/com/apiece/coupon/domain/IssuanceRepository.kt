@@ -1,8 +1,6 @@
 package com.apiece.coupon.domain
 
 import org.springframework.data.jpa.repository.JpaRepository
-import org.springframework.data.jpa.repository.Query
-import org.springframework.data.repository.query.Param
 
 interface IssuanceRepository : JpaRepository<Issuance, Long> {
     fun existsByUserIdAndCouponId(userId: Long, couponId: Long): Boolean
@@ -13,9 +11,4 @@ interface IssuanceRepository : JpaRepository<Issuance, Long> {
 
     fun findByIssuanceAttemptId(issuanceAttemptId: String): Issuance?
 
-    @Query(
-        "SELECT i.userId FROM Issuance i " +
-            "WHERE i.couponId = :couponId AND i.status = com.apiece.coupon.domain.IssuanceStatus.ISSUED",
-    )
-    fun findIssuedUserIds(@Param("couponId") couponId: Long): List<Long>
 }
