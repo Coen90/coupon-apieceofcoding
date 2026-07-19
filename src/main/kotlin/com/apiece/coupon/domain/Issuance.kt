@@ -61,10 +61,6 @@ class Issuance(
         usedAt = now
     }
 
-    fun markExpired() {
-        status = IssuanceStatus.EXPIRED
-    }
-
     fun reissue(attemptId: String, issuedAt: LocalDateTime, expiresAt: LocalDateTime) {
         issuanceAttemptId = attemptId
         status = IssuanceStatus.ISSUED
