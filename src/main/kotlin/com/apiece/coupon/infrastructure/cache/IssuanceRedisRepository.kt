@@ -11,7 +11,6 @@ class IssuanceRedisRepository(
 
     private val issueScript = longLuaScript("lua/issue.lua")
 
-    // 반환: 1=성공, 0=매진, -1=중복 발급
     fun tryIssue(couponId: Long, userId: Long): Long =
         redis.runForLong(
             issueScript,
