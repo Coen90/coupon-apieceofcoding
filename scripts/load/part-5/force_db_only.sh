@@ -50,10 +50,4 @@ printf '  DB: 발급 기록 %s건 추가 + 발급 수 %s 증가 (%s~%s번)\n' \
 # 2) Redis stock 만 N 차감 (사용자 목록 SADD 는 일부러 생략 = 휘발 재현).
 redis_cli DECRBY "coupon:$COUPON_ID:stock" "$COUNT" >/dev/null
 printf '  Redis: 재고만 %s 줄이고 발급자 명단에는 안 넣음 (명단이 날아간 상황 재현)\n' "$COUNT"
-
-# 발급이 Redis 를 거쳐 갔던 것으로 간주하고 대사 발급 시각 인덱스에 등록한다 (명단만 휘발).
-# grace(기본 10초)보다 과거 시각으로 넣어, 수동 대사(하한 0)의 window 에 들어오게 한다.
-redis_cli EVAL \
-  "redis.call('ZADD', KEYS[1], (tonumber(redis.call('TIME')[1]) - 20) * 1000, ARGV[1])" \
-  1 "coupon:reconcile:recent" "$COUPON_ID" >/dev/null
 printf '\033[1;32m  완료: DB 엔 기록이 있는데 Redis 명단엔 없음 → 명단 쪽 숫자가 어긋납니다.\033[0m\n'
