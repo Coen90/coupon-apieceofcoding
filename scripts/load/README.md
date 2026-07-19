@@ -26,7 +26,7 @@ docker compose up -d --force-recreate coupon-service
 part-2/   동시성: over_issuance.js, run.sh, verify.sh
 part-3/   큐 디커플링: issue_burst.js, verify_burst.sh, run.sh, kafka_lag.sh, kafka_dlt_peek.sh
 part-4/   캐시+매진 상태: coupon_burst.js, post_sellout_refresh.js, sell_out.sh, run.sh
-part-5/   보상+정합: force_dlt.sh, force_db_only.sh, drift_report.sh, run.sh
+part-5/   DLT 재처리+대사: force_dlt.sh, force_db_only.sh, drift_report.sh, run.sh
 ```
 
 ## 실행

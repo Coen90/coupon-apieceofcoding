@@ -43,7 +43,7 @@ printf '  사용자 불일치    : %s\n' "$list_gap"
 if (( db_gap == 0 && list_gap == 0 )); then
   printf '\033[1;32m  => 정상\033[0m\n'
 elif (( db_gap > 0 && list_gap == 0 )); then
-  printf '\033[1;33m  => DB 저장 실패: DLT 재처리 또는 보상 대상\033[0m\n'
+  printf '\033[1;33m  => DB 저장 실패: DLT 재처리 대상\033[0m\n'
 elif (( db_gap == 0 && list_gap > 0 )); then
   printf '\033[1;33m  => Redis users 누락: 대사 자동 보정 대상\033[0m\n'
 else
