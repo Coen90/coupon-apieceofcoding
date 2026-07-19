@@ -32,7 +32,7 @@ class IssuanceDltService(
             ?.let(repository::countByIssuanceAttemptId)?.toInt() ?: 0
         val exceptionType = header(record, KafkaHeaders.DLT_EXCEPTION_FQCN)?.take(MAX_EXCEPTION_TYPE_LENGTH)
         val invalidPayload = event == null
-        val quarantined = invalidPayload || retryCount >= MAX_DLT_REPLAY_COUNT || isNonRetryable(exceptionType)
+        val requiresReview = invalidPayload || retryCount >= MAX_DLT_REPLAY_COUNT || isNonRetryable(exceptionType)
         repository.save(
             IssuanceDltLog(
                 messageKey = messageKey,
@@ -46,11 +46,11 @@ class IssuanceDltService(
                 exceptionType = exceptionType,
                 failureReason = sanitizedHeader(record, KafkaHeaders.DLT_EXCEPTION_MESSAGE),
                 retryCount = retryCount,
-                status = if (quarantined) IssuanceDltStatus.QUARANTINED else IssuanceDltStatus.PENDING,
+                status = if (requiresReview) IssuanceDltStatus.REVIEW_REQUIRED else IssuanceDltStatus.PENDING,
                 decisionReason = when {
                     invalidPayload -> "INVALID_PAYLOAD"
                     retryCount >= MAX_DLT_REPLAY_COUNT -> "REPLAY_LIMIT_EXCEEDED"
-                    quarantined -> "NON_RETRYABLE_ERROR"
+                    requiresReview -> "NON_RETRYABLE_ERROR"
                     else -> null
                 },
                 receivedAt = LocalDateTime.now(),
@@ -70,8 +70,8 @@ class IssuanceDltService(
         val logs = repository.findAllByIdForUpdate(selectedIds).sortedBy { it.receivedAt }
         check(logs.size == selectedIds.size) { "Some DLT logs were not found" }
         val events = logs.map { log ->
-            check(log.status == IssuanceDltStatus.PENDING || log.status == IssuanceDltStatus.QUARANTINED) {
-                "Only pending or quarantined DLT logs can be replayed: ${log.id}"
+            check(log.status == IssuanceDltStatus.PENDING || log.status == IssuanceDltStatus.REVIEW_REQUIRED) {
+                "Only pending or review-required DLT logs can be replayed: ${log.id}"
             }
             log.toEvent()
         }
