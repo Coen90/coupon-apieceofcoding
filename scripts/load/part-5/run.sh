@@ -93,6 +93,8 @@ reconcile() {
   summary "part-5-2"
 }
 
+wait_service_ready || { printf 'coupon-service 준비 실패\n' >&2; exit 1; }
+
 if curl -fsS "$BASE/metrics/reconcile" >/dev/null 2>&1; then
   reconcile
 elif curl -fsS "$BASE/admin/issuance/dlt" >/dev/null 2>&1; then
