@@ -65,10 +65,6 @@ class Issuance(
         status = IssuanceStatus.EXPIRED
     }
 
-    fun markCanceled() {
-        status = IssuanceStatus.CANCELED
-    }
-
     fun reissue(attemptId: String, issuedAt: LocalDateTime, expiresAt: LocalDateTime) {
         issuanceAttemptId = attemptId
         status = IssuanceStatus.ISSUED

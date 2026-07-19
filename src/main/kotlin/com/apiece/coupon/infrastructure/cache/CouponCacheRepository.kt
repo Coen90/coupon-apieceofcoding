@@ -22,7 +22,6 @@ class CouponCacheRepository(
     private val cacheMetrics: CacheMetrics,
 ) {
 
-    // 사용자 응답 스레드를 막지 않으려고 백그라운드 갱신은 별도 풀에서.
     private val backgroundExecutor = Executors.newFixedThreadPool(4) { r ->
         Thread(r, "coupon-cache-swr-refresh").apply { isDaemon = true }
     }

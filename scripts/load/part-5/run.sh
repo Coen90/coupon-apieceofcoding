@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# 서버 기능을 감지해 part-5-0, 5-1, 5-2 시나리오 중 하나를 실행한다.
-
 set -euo pipefail
 cd "$(dirname "$0")/../../.."
 source ./scripts/load/part-5/_common.sh

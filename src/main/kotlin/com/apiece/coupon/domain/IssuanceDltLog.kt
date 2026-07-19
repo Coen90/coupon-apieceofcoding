@@ -13,7 +13,6 @@ import jakarta.persistence.UniqueConstraint
 import jakarta.persistence.Version
 import java.time.LocalDateTime
 
-// DLT에서 재처리할 수 없거나 운영 판단이 필요한 발급 이벤트의 영속 로그.
 @Entity
 @Table(
     name = "issuance_dlt_log",

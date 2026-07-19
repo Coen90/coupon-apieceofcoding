@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# 쿠폰 한 건의 DB와 Redis 수량 차이를 출력한다.
-
 set -euo pipefail
 COUPON_ID="${COUPON_ID:?COUPON_ID 환경변수 필요}"
 cd "$(dirname "$0")/../../.."
