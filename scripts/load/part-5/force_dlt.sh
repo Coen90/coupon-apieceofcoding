@@ -5,17 +5,13 @@
 # issuance.requested.DLT 로 메시지 N 건을 직접 떨군다. 결과: DB 측 잔차 +N (알람 대상),
 # 그리고 운영자가 확인할 DLT 메시지가 쌓인다.
 #
-# PRODUCE_DLT=0 으로 주면 DLT produce 를 건너뛴다 (Redis 만 어긋난 순수 DB 측 drift).
-# 운영자 보상 대상이 없어, reconcile 의 DB 측 알람을 격리해서 검증할 때 쓴다.
-#
-# 사용:  COUPON_ID=1 [COUNT=10] [USER_BASE=900000] [PRODUCE_DLT=1] scripts/load/part-5/force_dlt.sh
+# 사용:  COUPON_ID=1 [COUNT=10] [USER_BASE=900000] scripts/load/part-5/force_dlt.sh
 
 set -euo pipefail
 COUPON_ID="${COUPON_ID:?COUPON_ID 환경변수 필요}"
 COUNT="${COUNT:-10}"
 USER_BASE="${USER_BASE:-900000}"
 TOPIC="${TOPIC:-issuance.requested.DLT}"
-PRODUCE_DLT="${PRODUCE_DLT:-1}"
 cd "$(dirname "$0")/../../.."
 
 redis_cli() { docker compose exec -T redis redis-cli "$@"; }
@@ -49,23 +45,14 @@ done
 printf '  Redis: 재고 %s 줄이고 발급자 명단에 %s명 추가 (%s~%s번)  ← 사용자에겐 발급 성공으로 보임\n' \
   "$COUNT" "$COUNT" "${user_ids[0]}" "${user_ids[$((COUNT - 1))]}"
 
-# 발급이 Redis 를 거쳐 간 것이므로 대사 발급 시각 인덱스에 등록 (grace 보다 과거로 넣어 window 에 들어오게).
-redis_cli EVAL \
-  "redis.call('ZADD', KEYS[1], (tonumber(redis.call('TIME')[1]) - 20) * 1000, ARGV[1])" \
-  1 "coupon:reconcile:recent" "$COUPON_ID" >/dev/null
-
 # 2) DB 행은 만들지 않고, DLT 로 메시지 N 건을 직접 producer 로 떨군다.
 #    payload 는 IssuanceRequested 모양 그대로. 컨슈머가 default-type 으로 역직렬화한다.
-if [[ "$PRODUCE_DLT" == "1" ]]; then
-  {
-    for i in "${!user_ids[@]}"; do
-      printf '{"couponId":%s,"userId":%s,"issuanceAttemptId":"%s","issuedAt":"%s","expiresAt":"%s"}\n' \
-        "$COUPON_ID" "${user_ids[$i]}" "${issuance_attempt_ids[$i]}" "$issued_at" "$expires_at"
-    done
-  } | docker compose exec -T kafka /opt/kafka/bin/kafka-console-producer.sh \
-    --bootstrap-server localhost:9092 --topic "$TOPIC" >/dev/null
-  printf '  Kafka: DB 저장이 끝내 실패한 메시지 %s건을 DLT(실패 메시지 보관함)에 넣음\n' "$COUNT"
-else
-  printf '  Kafka: produce 생략 (PRODUCE_DLT=0, 순수 DB 측 drift)\n'
-fi
+{
+  for i in "${!user_ids[@]}"; do
+    printf '{"couponId":%s,"userId":%s,"issuanceAttemptId":"%s","issuedAt":"%s","expiresAt":"%s"}\n' \
+      "$COUPON_ID" "${user_ids[$i]}" "${issuance_attempt_ids[$i]}" "$issued_at" "$expires_at"
+  done
+} | docker compose exec -T kafka /opt/kafka/bin/kafka-console-producer.sh \
+  --bootstrap-server localhost:9092 --topic "$TOPIC" >/dev/null
+printf '  Kafka: DB 저장이 끝내 실패한 메시지 %s건을 DLT(실패 메시지 보관함)에 넣음\n' "$COUNT"
 printf '\033[1;32m  완료: DB 에는 발급 기록이 없고 Redis 만 발급된 상태 → DB 쪽 숫자가 어긋납니다.\033[0m\n'
