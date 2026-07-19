@@ -8,16 +8,20 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 printf '\n\033[1;36m===== coupon, issuance 데이터 리셋 =====\033[0m\n'
-# issuance_dlt_log 는 part-5-1 이상에서만 존재한다. 있으면 같이 비운다.
+mysql_exec() {
+  docker compose exec -T -e MYSQL_PWD=coupon mysql mysql -ucoupon -BN coupon -e "$1"
+}
+
+# 5단원 이후에 추가되는 테이블은 현재 브랜치에 존재할 때만 비운다.
+for table in issuance_history issuance_dlt_log reconcile_checkpoint; do
+  if [[ "$(mysql_exec "SELECT COUNT(*) FROM information_schema.tables
+                        WHERE table_schema='coupon' AND table_name='$table'")" == "1" ]]; then
+    mysql_exec "TRUNCATE TABLE $table"
+  fi
+done
+
 docker compose exec -T -e MYSQL_PWD=coupon mysql mysql -ucoupon -t coupon -e "
-  SET FOREIGN_KEY_CHECKS=0;
-  TRUNCATE issuance;
-  TRUNCATE coupon;
-  SET @has_dlt := (SELECT COUNT(*) FROM information_schema.tables
-                   WHERE table_schema = 'coupon' AND table_name = 'issuance_dlt_log');
-  SET @sql := IF(@has_dlt > 0, 'TRUNCATE issuance_dlt_log', 'DO 0');
-  PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-  SET FOREIGN_KEY_CHECKS=1;
+  SET FOREIGN_KEY_CHECKS=0; TRUNCATE issuance; TRUNCATE coupon; SET FOREIGN_KEY_CHECKS=1;
   SELECT (SELECT COUNT(*) FROM coupon)   AS coupon_rows,
          (SELECT COUNT(*) FROM issuance) AS issuance_rows;
 "
