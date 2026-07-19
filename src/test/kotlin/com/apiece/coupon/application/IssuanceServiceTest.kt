@@ -53,7 +53,7 @@ class IssuanceServiceTest {
 
     @Test
     fun `만료된 쿠폰이면 ExpiredException (lazy 판단)`() {
-        val expired = issuance(id = 1L, userId = 42L, expiresIn = -1) // 이미 만료
+        val expired = issuance(id = 1L, userId = 42L, expiresIn = -1)
         every { issuanceRepository.findById(1L) } returns Optional.of(expired)
         assertFailsWith<ExpiredException> { service.use(1L, 42L) }
     }

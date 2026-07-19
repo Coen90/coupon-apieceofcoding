@@ -39,7 +39,6 @@ class ReconcilerTest {
         assert(scheduled.cron == "\${coupon.reconcile.audit-cron}")
     }
 
-    // total/issued 만 다른 쿠폰 한 건이 발급 window 에 들어온 상황을 세팅하고, Redis 값은 인자로 stub.
     private fun setup(
         total: Int, issued: Int,
         stock: Long, users: Long, soldOut: Boolean,
@@ -66,7 +65,6 @@ class ReconcilerTest {
 
     @Test
     fun `목록 측 휘발이면 DB 의 누락 user_id 를 SADD 자동 보정`() {
-        // issued 10, stock 4990 -> DB 측 정합. users 0 -> 목록 측 +10.
         setup(total = 5000, issued = 10, stock = 4990, users = 0, soldOut = false)
         every { issuanceRepository.findNonCanceledUserIds(couponId) } returns (1L..10L).toList()
         every { redis.userIds(couponId) } returns emptySet()
@@ -99,7 +97,6 @@ class ReconcilerTest {
 
     @Test
     fun `DB 측 불일치는 알람만 내고 자동 보정하지 않음`() {
-        // issued 0, stock 4990 -> DB 측 +10. users 10 -> 목록 측 정합.
         setup(total = 5000, issued = 0, stock = 4990, users = 10, soldOut = false)
 
         val report = reconciler.reconcileAll()
