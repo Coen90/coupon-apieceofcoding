@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# part-5 run.sh 공용 헬퍼. 실행 파일이 아니라 라이브러리다.
-
 BASE="${BASE_URL:-http://localhost:8080}"
 
 mysql_scalar() { docker compose exec -T -e MYSQL_PWD=coupon mysql mysql -ucoupon -BN coupon -e "$1"; }
@@ -14,7 +12,7 @@ wait_service_ready() {
   return 1
 }
 
-restart_service() { # [reconcile_interval_ms]
+restart_service() {
   docker compose up -d --force-recreate kafka >/dev/null 2>&1
   for _ in $(seq 1 40); do
     [[ "$(docker compose ps kafka --format '{{.Status}}' 2>/dev/null || true)" == *healthy* ]] && break

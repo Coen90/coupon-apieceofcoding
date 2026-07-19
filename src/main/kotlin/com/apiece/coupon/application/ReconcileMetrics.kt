@@ -3,7 +3,6 @@ package com.apiece.coupon.application
 import org.springframework.stereotype.Component
 import java.util.concurrent.atomic.AtomicLong
 
-// drift/negative 는 마지막 실행 기준 게이지(set), auto_fix 는 누적 카운터(increment).
 @Component
 class ReconcileMetrics {
     private val drift = AtomicLong()

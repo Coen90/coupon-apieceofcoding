@@ -30,11 +30,9 @@ class Reconciler(
         }
         val cutoffMs = System.currentTimeMillis() - reconcileProperties.gracePeriodMs
         try {
-            // 첫 회차는 직전 cutoff가 없으니 한 칸(interval)만 거슬러 올라간다.
             val fromMs = checkpointStore.lastSuccessCutoffMs().takeIf { it > 0 }
                 ?: (cutoffMs - reconcileProperties.intervalMs)
             val report = reconcileWindow(fromMs, cutoffMs, renewLease = true)
-            // 실패한 쿠폰이 있으면 같은 구간을 다음 회차에 다시 본다.
             if (report.failedCoupons == 0) checkpointStore.markSuccess(cutoffMs)
         } finally {
             checkpointStore.release()
@@ -51,13 +49,11 @@ class Reconciler(
         log.info { "일일 전수 audit 완료 checked=${report.checkedCoupons} alerts=${report.driftAlerts}" }
     }
 
-    // 운영/검증용 수동 트리거: 하한 0 으로 지금까지 정착된 발급을 한 번에 훑는다 (스케줄 커서는 건드리지 않음).
     fun reconcileAll(): ReconcileReport {
         val cutoffMs = System.currentTimeMillis() - reconcileProperties.gracePeriodMs
         return reconcileWindow(0, cutoffMs)
     }
 
-    // Redis ZSET을 잃어도 대상을 찾을 수 있도록 DB의 모든 쿠폰을 느리게 점검한다.
     fun auditAll(): ReconcileReport =
         tryAuditAll() ?: ReconcileReport(0, 0, 0, 0L, 0)
 
@@ -71,7 +67,6 @@ class Reconciler(
         }
     }
 
-    // 발급 시각이 (fromExclusiveMs, toInclusiveMs] 에 든 쿠폰만 검사한다.
     private fun reconcileWindow(
         fromExclusiveMs: Long,
         toInclusiveMs: Long,
@@ -109,7 +104,6 @@ class Reconciler(
         return report
     }
 
-    // Redis 측 안전한 불일치를 그 자리에서 보정하고, 무엇을 했는지 반환한다 (메트릭 집계는 reconcileWindow).
     private fun reconcileCoupon(couponId: Long): CouponOutcome {
         val s = readSnapshot(couponId)
         if (s == null) {
@@ -131,7 +125,6 @@ class Reconciler(
         }
 
         var listDriftAlert = false
-        // 목록 측만 부족하면 CANCELED가 아닌 DB 사용자 기준으로 복구한다.
         if (s.listResidual > 0 && s.dbResidual == 0L) {
             val missing = issuanceRepository.findNonCanceledUserIds(couponId) -
                 reconcileRedisRepository.userIds(couponId).mapNotNull { it.toLongOrNull() }.toSet()
@@ -148,7 +141,6 @@ class Reconciler(
             log.warn { "Redis 사용자 목록 초과 감지 coupon=$couponId residual=${s.listResidual}" }
         }
 
-        // DB 측 불일치는 자동 보정이 과발급/회수를 부를 수 있어 알람만.
         var confirmedDbDrift = 0L
         if (s.dbResidual != 0L) {
             confirmedDbDrift = abs(s.dbResidual)
