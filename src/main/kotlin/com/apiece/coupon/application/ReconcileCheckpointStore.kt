@@ -48,7 +48,6 @@ class ReconcileCheckpointStore(
         try {
             repository.save(ReconcileCheckpoint(jobName))
         } catch (_: DataIntegrityViolationException) {
-            // 다른 인스턴스가 먼저 만들었으면 그대로 사용한다.
         }
     }
 }
