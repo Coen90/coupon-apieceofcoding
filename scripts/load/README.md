@@ -30,7 +30,7 @@ docker compose up -d --force-recreate coupon-service
 part-2/   동시성: over_issuance.js, run.sh, verify.sh
 part-3/   큐 디커플링: issue_burst.js, verify_burst.sh, run.sh, kafka_lag.sh, kafka_dlt_peek.sh
 part-4/   캐시+매진 상태: coupon_burst.js, post_sellout_refresh.js, sell_out.sh, run.sh
-part-5/   보상+정합: force_dlt.sh, force_db_only.sh, drift_report.sh, run.sh
+part-5/   DLT 재처리+대사: force_dlt.sh, force_db_only.sh, drift_report.sh, run.sh
 part-6/   트래픽 제어 베이스라인: create_big_coupon.sh, issue_flood.js, run.sh
 ```
 
@@ -57,7 +57,7 @@ scripts/load/part-3/kafka_dlt_peek.sh   # DLT 확인 (3-2c)
 ```
 part-5 는 두 등식 `total = 발급누적 + Redis재고 = Redis사용자 + Redis재고` 의 잔차로 불일치를 잰다. p5-1 이상에서는 모든 issuance 주입 이벤트에 발급 시도별 `issuanceAttemptId`를 넣는다. `force_dlt` 는 DB 측(알람 대상), `force_db_only` 는 목록 측(자동 보정 대상)을 깬다.
 
-DLT consumer는 메시지와 실패 원인을 `issuance_dlt_log`에 기록한다. 운영자는 `GET /admin/issuance/dlt`로 확인하고, 장애가 복구되면 `POST /admin/issuance/dlt/replay`를 호출한다. 데이터 오류나 정책 취소는 `POST /admin/issuance/dlt/compensate`에 `{"id": <id>}`를 보내 보상한다.
+DLT consumer는 메시지와 실패 원인을 `issuance_dlt_log`에 기록한다. 운영자는 `GET /admin/issuance/dlt`로 확인하고, 원인을 해결한 뒤 `POST /admin/issuance/dlt/replay`에 `{"ids": [1, 2]}`를 보내 선택한 메시지를 재처리한다. 복원할 수 없는 메시지는 `QUARANTINED`로 남긴다.
 
 최근 발급 구간은 1분마다 대사하고, Redis 색인을 사용하지 않는 느린 전수 audit은 하루 한 번 실행한다. `/admin/reconcile/run`은 같은 전수 audit을 즉시 실행한다.
 

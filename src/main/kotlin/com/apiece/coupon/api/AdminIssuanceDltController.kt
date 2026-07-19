@@ -1,8 +1,8 @@
 package com.apiece.coupon.api
 
-import com.apiece.coupon.api.dto.CompensateRequest
 import com.apiece.coupon.api.dto.IssuanceDltResponse
 import com.apiece.coupon.api.dto.IssuanceDltReplayResponse
+import com.apiece.coupon.api.dto.ReplayIssuanceDltRequest
 import com.apiece.coupon.application.IssuanceDltService
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
@@ -20,9 +20,6 @@ class AdminIssuanceDltController(
         issuanceDltService.findRecent().map(IssuanceDltResponse::from)
 
     @PostMapping("/replay")
-    fun replay(): IssuanceDltReplayResponse = IssuanceDltReplayResponse(issuanceDltService.replayPending())
-
-    @PostMapping("/compensate")
-    fun compensate(@RequestBody request: CompensateRequest): IssuanceDltResponse =
-        IssuanceDltResponse.from(issuanceDltService.compensate(request.id))
+    fun replay(@RequestBody request: ReplayIssuanceDltRequest): IssuanceDltReplayResponse =
+        IssuanceDltReplayResponse(issuanceDltService.replay(request.ids))
 }
