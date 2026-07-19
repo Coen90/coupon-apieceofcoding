@@ -41,7 +41,7 @@ class IssuanceDltServiceTest {
     }
 
     @Test
-    fun `데이터 오류는 즉시 격리`() {
+    fun `데이터 오류는 즉시 확인 필요 상태`() {
         every { repository.countByIssuanceAttemptId("attempt-1") } returns 0
         val record = record().apply {
             headers().add(RecordHeader(
@@ -59,7 +59,7 @@ class IssuanceDltServiceTest {
     }
 
     @Test
-    fun `본문을 읽을 수 없어도 DLT 로그에 격리`() {
+    fun `본문을 읽을 수 없어도 DLT 로그에 확인 필요 상태`() {
         val malformed = ConsumerRecord("issuance.requested.DLT", 0, 11L, "42", "{".toByteArray())
         val saved = slot<IssuanceDltLog>()
 
@@ -72,7 +72,26 @@ class IssuanceDltServiceTest {
     }
 
     @Test
-    fun `replay 후 세 번 다시 실패하면 격리`() {
+    fun `빈 issuanceAttemptId는 확인 필요 상태로 기록`() {
+        val invalid = ConsumerRecord(
+            "issuance.requested.DLT",
+            0,
+            12L,
+            "42",
+            """{"couponId":1,"userId":42,"issuanceAttemptId":"","issuedAt":"2026-07-15T00:00:00","expiresAt":"2026-07-22T00:00:00"}"""
+                .toByteArray(),
+        )
+        val saved = slot<IssuanceDltLog>()
+
+        service.record(invalid)
+
+        verify { repository.save(capture(saved)) }
+        assertEquals(IssuanceDltStatus.REVIEW_REQUIRED, saved.captured.status)
+        assertEquals("INVALID_PAYLOAD", saved.captured.decisionReason)
+    }
+
+    @Test
+    fun `replay 후 세 번 다시 실패하면 확인 필요 상태`() {
         every { repository.countByIssuanceAttemptId("attempt-1") } returns 3
         val saved = slot<IssuanceDltLog>()
 
@@ -84,7 +103,7 @@ class IssuanceDltServiceTest {
     }
 
     @Test
-    fun `선택한 대기와 격리 로그를 원본 토픽에 재발행`() {
+    fun `선택한 대기와 확인 필요 로그를 원본 토픽에 재발행`() {
         val pending = log(1L, IssuanceDltStatus.PENDING)
         val reviewRequired = log(2L, IssuanceDltStatus.REVIEW_REQUIRED)
         every { repository.findAllByIdForUpdate(listOf(1L, 2L)) } returns listOf(pending, reviewRequired)
@@ -99,7 +118,7 @@ class IssuanceDltServiceTest {
     }
 
     @Test
-    fun `발급 정보를 복원할 수 없는 격리 로그는 재발행하지 않음`() {
+    fun `발급 정보를 복원할 수 없는 확인 필요 로그는 재발행하지 않음`() {
         val invalid = log(1L, IssuanceDltStatus.REVIEW_REQUIRED).apply {
             couponId = null
             userId = null
