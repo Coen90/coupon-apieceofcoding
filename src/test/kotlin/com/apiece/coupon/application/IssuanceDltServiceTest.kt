@@ -54,7 +54,7 @@ class IssuanceDltServiceTest {
         service.record(record)
 
         verify { repository.save(capture(saved)) }
-        assertEquals(IssuanceDltStatus.QUARANTINED, saved.captured.status)
+        assertEquals(IssuanceDltStatus.REVIEW_REQUIRED, saved.captured.status)
         assertEquals("NON_RETRYABLE_ERROR", saved.captured.decisionReason)
     }
 
@@ -66,7 +66,7 @@ class IssuanceDltServiceTest {
         service.record(malformed)
 
         verify { repository.save(capture(saved)) }
-        assertEquals(IssuanceDltStatus.QUARANTINED, saved.captured.status)
+        assertEquals(IssuanceDltStatus.REVIEW_REQUIRED, saved.captured.status)
         assertEquals("INVALID_PAYLOAD", saved.captured.decisionReason)
         assertEquals(null, saved.captured.issuanceAttemptId)
     }
@@ -79,28 +79,28 @@ class IssuanceDltServiceTest {
         service.record(record())
 
         verify { repository.save(capture(saved)) }
-        assertEquals(IssuanceDltStatus.QUARANTINED, saved.captured.status)
+        assertEquals(IssuanceDltStatus.REVIEW_REQUIRED, saved.captured.status)
         assertEquals("REPLAY_LIMIT_EXCEEDED", saved.captured.decisionReason)
     }
 
     @Test
     fun `선택한 대기와 격리 로그를 원본 토픽에 재발행`() {
         val pending = log(1L, IssuanceDltStatus.PENDING)
-        val quarantined = log(2L, IssuanceDltStatus.QUARANTINED)
-        every { repository.findAllByIdForUpdate(listOf(1L, 2L)) } returns listOf(pending, quarantined)
+        val reviewRequired = log(2L, IssuanceDltStatus.REVIEW_REQUIRED)
+        every { repository.findAllByIdForUpdate(listOf(1L, 2L)) } returns listOf(pending, reviewRequired)
         every { producer.publishAndWait(any()) } just runs
 
         val replayedCount = service.replay(listOf(1L, 2L))
 
         assertEquals(2, replayedCount)
         assertEquals(IssuanceDltStatus.REPLAYED, pending.status)
-        assertEquals(IssuanceDltStatus.REPLAYED, quarantined.status)
+        assertEquals(IssuanceDltStatus.REPLAYED, reviewRequired.status)
         verify(exactly = 2) { producer.publishAndWait(any()) }
     }
 
     @Test
     fun `발급 정보를 복원할 수 없는 격리 로그는 재발행하지 않음`() {
-        val invalid = log(1L, IssuanceDltStatus.QUARANTINED).apply {
+        val invalid = log(1L, IssuanceDltStatus.REVIEW_REQUIRED).apply {
             couponId = null
             userId = null
             issuanceAttemptId = null
