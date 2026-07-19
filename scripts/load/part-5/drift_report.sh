@@ -66,10 +66,7 @@ elif (( db_gap > 0 && list_gap == 0 )); then
   printf '            (재고를 1 되돌리고, 발급자 명단에서 빼고, 발급 기록을 취소로 남김)\033[0m\n'
 elif (( db_gap == 0 && list_gap > 0 )); then
   printf '\033[1;33m  => Redis 발급자 명단에서 %s명이 비어 있어요. 명단만 날아간 경우라,\n' "$list_gap"
-  printf '     취소되지 않은 DB 기록을 보고 자동으로 되살릴 수 있습니다 (part-5-2 점검 배치가 SADD 로 자동 복구).\033[0m\n'
-elif (( db_gap == 0 && list_gap < 0 )); then
-  printf '\033[1;33m  => Redis 발급자 명단이 DB보다 %s명 많아요.\n' "$((-list_gap))"
-  printf '     정상 사용자를 지울 수 있으므로 자동 삭제하지 않고 알람만 남깁니다.\033[0m\n'
+  printf '     DB 기록을 보고 자동으로 되살릴 수 있습니다 (part-5-2 점검 배치가 SADD 로 자동 복구).\033[0m\n'
 else
   printf '\033[1;31m  => DB 와 명단이 둘 다 어긋났어요. 자동으로는 못 고치니 사람이 확인합니다.\n'
   printf '     [사람이 할 일]\n'

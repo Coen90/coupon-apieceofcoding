@@ -1,71 +1,51 @@
 #!/usr/bin/env bash
-# part-5-1: DLT replay와 보상을 한 번에 검증한다.
+# part-5-2: 대사의 자동 보정과 알람을 한 번에 검증한다.
 
 set -euo pipefail
 cd "$(dirname "$0")/../../.."
 source ./scripts/load/part-5/_common.sh
 
-COUNT="${COUNT:-3}"
-USER_BASE="${USER_BASE:-900000}"
+COUNT="${COUNT:-10}"
+export COUPON_RECONCILE_AUDIT_CRON="0 0 0 1 1 *"
 
-wait_dlt_id() { # issuanceAttemptId
-  for _ in $(seq 1 30); do
-    id="$(curl -fsS "$BASE/admin/issuance/dlt" | jq -r --arg attempt "$1" \
-      '.[] | select(.issuanceAttemptId == $attempt) | .id' | tail -1)"
-    [[ -n "$id" ]] && { printf '%s' "$id"; return 0; }
-    sleep 1
-  done
-  return 1
-}
+metric() { curl -fsS "$BASE/metrics/reconcile" | jq -r ".$1"; }
+reset_metrics() { curl -fsS -X POST "$BASE/metrics/reconcile/reset" >/dev/null; }
+reconcile() { curl -fsS -X POST "$BASE/admin/reconcile/run" >/dev/null; }
 
-compensate() {
-  curl -fsS -X POST "$BASE/admin/issuance/dlt/compensate" \
-    -H 'Content-Type: application/json' -d "{\"id\":$1}"
-}
+# 자동 스케줄이 수동 검증과 겹치지 않게 한 시간 간격으로 재기동한다.
+restart_service 3600000
 
-printf '\n\033[1;35m##### 1. 장애 복구 후 DLT replay #####\033[0m\n'
+printf '\n\033[1;35m##### 1. Redis users 누락 자동 보정 #####\033[0m\n'
 ./scripts/load/reset.sh >/dev/null
-restart_service
+reset_metrics
 cid="$(./scripts/load/create_coupon.sh)"
-COUPON_ID="$cid" COUNT=1 USER_BASE="$USER_BASE" ./scripts/load/part-5/force_dlt.sh >/dev/null
-attempt_id="$(redis_cli GET "coupon:$cid:issuance-attempt:$((USER_BASE + 1))")"
-wait_dlt_id "$attempt_id" >/dev/null || ng "DLT 로그 대기 실패"
-curl -fsS -X POST "$BASE/admin/issuance/dlt/replay" >/dev/null
-for _ in $(seq 1 30); do
-  [[ "$(mysql_scalar "SELECT COUNT(*) FROM issuance WHERE issuance_attempt_id='$attempt_id'")" == "1" ]] && break
-  sleep 1
-done
-check "같은 발급 시도로 DB 저장 완료" \
-  "$(mysql_scalar "SELECT COUNT(*) FROM issuance WHERE issuance_attempt_id='$attempt_id'")" "1"
+COUPON_ID="$cid" COUNT="$COUNT" ./scripts/load/part-5/force_db_only.sh >/dev/null
+reconcile
+check "발급자 명단 복구" "$(redis_cli SCARD "coupon:$cid:users")" "$COUNT"
+check "자동 보정 횟수" "$(metric reconcileAutoFixTotal)" "1"
+check "DB 측 불일치" "$(metric redisDbDrift)" "0"
 
-printf '\n\033[1;35m##### 2. 보상과 중복 호출 #####\033[0m\n'
+printf '\n\033[1;35m##### 2. DB 측 불일치는 알람만 #####\033[0m\n'
 ./scripts/load/reset.sh >/dev/null
-restart_service
-curl -fsS -X POST "$BASE/metrics/compensation/reset" >/dev/null
+reset_metrics
 cid="$(./scripts/load/create_coupon.sh)"
-COUPON_ID="$cid" COUNT="$COUNT" USER_BASE="$USER_BASE" ./scripts/load/part-5/force_dlt.sh >/dev/null
-for i in $(seq 1 "$COUNT"); do
-  uid=$((USER_BASE + i))
-  attempt_id="$(redis_cli GET "coupon:$cid:issuance-attempt:$uid")"
-  dlt_id="$(wait_dlt_id "$attempt_id")" || { ng "DLT 로그 대기 실패"; continue; }
-  compensate "$dlt_id" >/dev/null
-  compensate "$dlt_id" >/dev/null
-done
-check "실제 보상 수" "$(curl -fsS "$BASE/metrics/compensation" | jq -r '.compensationTotal')" "$COUNT"
-check "취소 이력 수" \
-  "$(mysql_scalar "SELECT COUNT(*) FROM issuance_history WHERE coupon_id=$cid AND status='CANCELED'")" "$COUNT"
-check "재고 복구" "$(redis_cli GET "coupon:$cid:stock")" "5000"
-check "발급자 명단 복구" "$(redis_cli SCARD "coupon:$cid:users")" "0"
+COUPON_ID="$cid" COUNT="$COUNT" ./scripts/load/part-5/force_dlt.sh >/dev/null
+issued_before="$(mysql_scalar "SELECT issued_quantity FROM coupon WHERE id=$cid")"
+stock_before="$(redis_cli GET "coupon:$cid:stock")"
+reconcile
+check "DB 측 불일치 감지" "$(metric redisDbDrift)" "$COUNT"
+check "자동 보정하지 않음" "$(metric reconcileAutoFixTotal)" "0"
+check "DB 발급 수 유지" "$(mysql_scalar "SELECT issued_quantity FROM coupon WHERE id=$cid")" "$issued_before"
+check "Redis 재고 유지" "$(redis_cli GET "coupon:$cid:stock")" "$stock_before"
 
-printf '\n\033[1;35m##### 3. 매진 직후 보상 #####\033[0m\n'
-cid="$(curl -fsS -X POST "$BASE/api/coupons" -H 'Content-Type: application/json' \
-  -d '{"name":"sellout-1","totalQuantity":1,"validityDays":7}' | jq -r '.id')"
-COUPON_ID="$cid" COUNT=1 USER_BASE=0 ./scripts/load/part-5/force_dlt.sh >/dev/null
+printf '\n\033[1;35m##### 3. 잘못된 매진 표시 자동 해제 #####\033[0m\n'
+./scripts/load/reset.sh >/dev/null
+reset_metrics
+cid="$(./scripts/load/create_coupon.sh)"
 redis_cli SET "coupon:$cid:sold_out" 1 >/dev/null
-attempt_id="$(redis_cli GET "coupon:$cid:issuance-attempt:1")"
-dlt_id="$(wait_dlt_id "$attempt_id")" || { ng "DLT 로그 대기 실패"; exit 1; }
-compensate "$dlt_id" >/dev/null
-check "재고 1장 복구" "$(redis_cli GET "coupon:$cid:stock")" "1"
+reconcile
 check "매진 표시 해제" "$(redis_cli EXISTS "coupon:$cid:sold_out")" "0"
+check "자동 보정 횟수" "$(metric reconcileAutoFixTotal)" "1"
+check "재고 음수" "$(metric stockNegative)" "0"
 
-summary "part-5-1"
+summary "part-5-2"

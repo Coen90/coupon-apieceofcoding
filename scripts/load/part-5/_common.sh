@@ -21,9 +21,7 @@ restart_service() { # [reconcile_interval_ms]
     sleep 1
   done
   if [[ -n "${1:-}" ]]; then
-    COUPON_RECONCILE_INTERVAL_MS="$1" \
-      COUPON_RECONCILE_AUDIT_CRON="0 0 0 1 1 *" \
-      docker compose up -d --force-recreate coupon-service >/dev/null
+    COUPON_RECONCILE_INTERVAL_MS="$1" docker compose up -d --force-recreate coupon-service >/dev/null
   else
     docker compose restart coupon-service >/dev/null
   fi
