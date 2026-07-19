@@ -1,7 +1,6 @@
 package com.apiece.coupon.api
 
 import com.apiece.coupon.application.IssuanceDltService
-import com.apiece.coupon.domain.IssuanceDltLog
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -11,7 +10,6 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
-import java.time.LocalDateTime
 
 class AdminIssuanceDltControllerTest {
 
@@ -19,29 +17,17 @@ class AdminIssuanceDltControllerTest {
     private val mockMvc = MockMvcBuilders.standaloneSetup(AdminIssuanceDltController(service)).build()
 
     @Test
-    fun `보상 로그 ID를 요청 본문으로 받는다`() {
-        val now = LocalDateTime.of(2026, 7, 17, 12, 0)
-        every { service.compensate(7L) } returns IssuanceDltLog(
-            messageKey = "issuance-7",
-            dltPartition = 0,
-            dltOffset = 10L,
-            couponId = 1L,
-            userId = 2L,
-            issuanceAttemptId = "attempt-7",
-            issuedAt = now,
-            expiresAt = now.plusDays(7),
-            receivedAt = now,
-            id = 7L,
-        )
+    fun `선택한 DLT 로그 ID를 replay한다`() {
+        every { service.replay(listOf(7L, 8L)) } returns 2
 
         mockMvc.perform(
-            post("/admin/issuance/dlt/compensate")
+            post("/admin/issuance/dlt/replay")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("""{"id":7}"""),
+                .content("""{"ids":[7,8]}"""),
         )
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.id").value(7))
+            .andExpect(jsonPath("$.replayedCount").value(2))
 
-        verify(exactly = 1) { service.compensate(7L) }
+        verify(exactly = 1) { service.replay(listOf(7L, 8L)) }
     }
 }

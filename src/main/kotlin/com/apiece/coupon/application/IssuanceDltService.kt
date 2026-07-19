@@ -1,6 +1,5 @@
 package com.apiece.coupon.application
 
-import com.apiece.coupon.domain.CompensationReason
 import com.apiece.coupon.domain.IssuanceDltLog
 import com.apiece.coupon.domain.IssuanceDltLogRepository
 import com.apiece.coupon.domain.IssuanceDltStatus
@@ -18,7 +17,6 @@ import java.time.LocalDateTime
 class IssuanceDltService(
     private val repository: IssuanceDltLogRepository,
     private val producer: IssuanceRequestProducer,
-    private val compensationService: CompensationService,
 ) {
     private val jsonMapper = JsonMapper.builder().findAndAddModules().build()
 
@@ -64,41 +62,26 @@ class IssuanceDltService(
     fun findRecent(): List<IssuanceDltLog> = repository.findTop100ByOrderByReceivedAtDesc()
 
     @Transactional
-    fun replayPending(): Int {
-        val logs = repository.findTop100ByStatusOrderByReceivedAtAsc(IssuanceDltStatus.PENDING)
-        logs.forEach { log ->
-            producer.publishAndWait(log.toEvent())
+    fun replay(ids: List<Long>): Int {
+        val selectedIds = ids.distinct()
+        require(selectedIds.isNotEmpty()) { "At least one DLT log id is required" }
+        require(selectedIds.size <= MAX_REPLAY_COUNT) { "At most $MAX_REPLAY_COUNT DLT logs can be replayed" }
+
+        val logs = repository.findAllByIdForUpdate(selectedIds).sortedBy { it.receivedAt }
+        check(logs.size == selectedIds.size) { "Some DLT logs were not found" }
+        val events = logs.map { log ->
+            check(log.status == IssuanceDltStatus.PENDING || log.status == IssuanceDltStatus.QUARANTINED) {
+                "Only pending or quarantined DLT logs can be replayed: ${log.id}"
+            }
+            log.toEvent()
+        }
+        logs.zip(events).forEach { (log, event) ->
+            producer.publishAndWait(event)
             log.status = IssuanceDltStatus.REPLAYED
             log.decisionReason = "OPERATOR_REPLAY"
             log.resolvedAt = LocalDateTime.now()
         }
         return logs.size
-    }
-
-    @Transactional
-    fun compensate(id: Long): IssuanceDltLog {
-        val log = repository.findByIdForUpdate(id) ?: throw IllegalArgumentException("DLT log not found: $id")
-        if (log.status == IssuanceDltStatus.COMPENSATED) return log
-        check(log.status == IssuanceDltStatus.PENDING || log.status == IssuanceDltStatus.QUARANTINED) {
-            "Only pending or quarantined DLT logs can be compensated: $id"
-        }
-        val couponId = checkNotNull(log.couponId) { "DLT log has no coupon id: $id" }
-        val userId = checkNotNull(log.userId) { "DLT log has no user id: $id" }
-        val issuanceAttemptId = checkNotNull(log.issuanceAttemptId) { "DLT log has no issuance attempt id: $id" }
-        compensationService.compensate(
-            CompensationCommand(
-                couponId = couponId,
-                userId = userId,
-                issuanceAttemptId = issuanceAttemptId,
-                reason = CompensationReason.OPERATOR_MANUAL,
-                issuedAt = log.issuedAt,
-                expiresAt = log.expiresAt,
-            ),
-        )
-        if (log.status == IssuanceDltStatus.PENDING) log.decisionReason = "POLICY_CANCELED"
-        log.status = IssuanceDltStatus.COMPENSATED
-        log.resolvedAt = LocalDateTime.now()
-        return repository.save(log)
     }
 
     private fun IssuanceDltLog.toEvent() = IssuanceRequested(
@@ -120,6 +103,7 @@ class IssuanceDltService(
 
     companion object {
         private const val MAX_DLT_REPLAY_COUNT = 3
+        private const val MAX_REPLAY_COUNT = 100
         private const val MAX_ISSUANCE_ATTEMPT_ID_LENGTH = 36
         private const val MAX_EXCEPTION_TYPE_LENGTH = 200
         private const val MAX_FAILURE_REASON_LENGTH = 500
