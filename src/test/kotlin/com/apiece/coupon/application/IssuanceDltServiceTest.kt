@@ -21,8 +21,7 @@ import kotlin.test.assertFailsWith
 class IssuanceDltServiceTest {
     private val repository = mockk<IssuanceDltLogRepository>(relaxed = true)
     private val producer = mockk<IssuanceRequestProducer>(relaxed = true)
-    private val compensationService = mockk<CompensationService>(relaxed = true)
-    private val service = IssuanceDltService(repository, producer, compensationService)
+    private val service = IssuanceDltService(repository, producer)
 
     init {
         every { repository.findByMessageKey(any()) } returns null
@@ -85,44 +84,32 @@ class IssuanceDltServiceTest {
     }
 
     @Test
-    fun `운영자 replay는 대기 중인 로그를 최대 백 건 재발행`() {
-        val log = log(status = IssuanceDltStatus.PENDING)
-        every {
-            repository.findTop100ByStatusOrderByReceivedAtAsc(IssuanceDltStatus.PENDING)
-        } returns listOf(log)
+    fun `선택한 대기와 격리 로그를 원본 토픽에 재발행`() {
+        val pending = log(1L, IssuanceDltStatus.PENDING)
+        val quarantined = log(2L, IssuanceDltStatus.QUARANTINED)
+        every { repository.findAllByIdForUpdate(listOf(1L, 2L)) } returns listOf(pending, quarantined)
         every { producer.publishAndWait(any()) } just runs
 
-        val processedCount = service.replayPending()
+        val replayedCount = service.replay(listOf(1L, 2L))
 
-        assertEquals(1, processedCount)
-        assertEquals(IssuanceDltStatus.REPLAYED, log.status)
-        verify(exactly = 1) { producer.publishAndWait(any()) }
+        assertEquals(2, replayedCount)
+        assertEquals(IssuanceDltStatus.REPLAYED, pending.status)
+        assertEquals(IssuanceDltStatus.REPLAYED, quarantined.status)
+        verify(exactly = 2) { producer.publishAndWait(any()) }
     }
 
     @Test
-    fun `대기 중인 로그를 보상하면 정책 취소로 기록`() {
-        val log = log(status = IssuanceDltStatus.PENDING)
-        every { repository.findByIdForUpdate(1L) } returns log
-        every { compensationService.compensate(any()) } returns true
-
-        val result = service.compensate(1L)
-
-        assertEquals(IssuanceDltStatus.COMPENSATED, result.status)
-        assertEquals("POLICY_CANCELED", result.decisionReason)
-    }
-
-    @Test
-    fun `발급 식별자가 없는 로그는 보상하지 않음`() {
-        val log = log(status = IssuanceDltStatus.QUARANTINED).apply {
+    fun `발급 정보를 복원할 수 없는 격리 로그는 재발행하지 않음`() {
+        val invalid = log(1L, IssuanceDltStatus.QUARANTINED).apply {
             couponId = null
             userId = null
             issuanceAttemptId = null
         }
-        every { repository.findByIdForUpdate(1L) } returns log
+        every { repository.findAllByIdForUpdate(listOf(1L)) } returns listOf(invalid)
 
-        assertFailsWith<IllegalStateException> { service.compensate(1L) }
+        assertFailsWith<IllegalArgumentException> { service.replay(listOf(1L)) }
 
-        verify(exactly = 0) { compensationService.compensate(any()) }
+        verify(exactly = 0) { producer.publishAndWait(any()) }
     }
 
     private fun record() = ConsumerRecord(
@@ -134,17 +121,17 @@ class IssuanceDltServiceTest {
             .toByteArray(),
     )
 
-    private fun log(status: IssuanceDltStatus) = IssuanceDltLog(
-        messageKey = "issuance.requested.DLT:0:10",
+    private fun log(id: Long, status: IssuanceDltStatus) = IssuanceDltLog(
+        messageKey = "issuance.requested.DLT:0:$id",
         dltPartition = 0,
-        dltOffset = 10L,
+        dltOffset = id,
         couponId = 1L,
         userId = 42L,
-        issuanceAttemptId = "attempt-1",
+        issuanceAttemptId = "attempt-$id",
         issuedAt = LocalDateTime.now(),
         expiresAt = LocalDateTime.now().plusDays(7),
         status = status,
         receivedAt = LocalDateTime.now(),
-        id = 1L,
+        id = id,
     )
 }
