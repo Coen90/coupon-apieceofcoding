@@ -12,9 +12,6 @@ interface IssuanceDltLogRepository : JpaRepository<IssuanceDltLog, Long> {
     fun findTop100ByOrderByReceivedAtDesc(): List<IssuanceDltLog>
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT log FROM IssuanceDltLog log WHERE log.id = :id")
-    fun findByIdForUpdate(@Param("id") id: Long): IssuanceDltLog?
-
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    fun findTop100ByStatusOrderByReceivedAtAsc(status: IssuanceDltStatus): List<IssuanceDltLog>
+    @Query("SELECT log FROM IssuanceDltLog log WHERE log.id IN :ids")
+    fun findAllByIdForUpdate(@Param("ids") ids: Collection<Long>): List<IssuanceDltLog>
 }
