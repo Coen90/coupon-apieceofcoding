@@ -19,7 +19,7 @@ git checkout <branch>
 docker compose up -d --force-recreate coupon-service
 ```
 
-`issuance_attempt_id`로 이름을 바꾼 p5-1 이상을 기존 DB 볼륨에서 처음 실행할 때는 학습용 데이터이므로 한 번만 `docker compose down -v` 후 다시 올린다.
+`issuance_attempt_id`와 DLT 상태 이름을 바꾼 p5-1 이상을 기존 DB 볼륨에서 처음 실행할 때는 학습용 데이터이므로 한 번만 `docker compose down -v` 후 다시 올린다.
 
 발급 후 재발급은 `issuance` 최신 행을 갱신하고 `issuance_history`에 이력을 남긴다. `force_db_only.sh`도 두 테이블에 함께 기록한다.
 

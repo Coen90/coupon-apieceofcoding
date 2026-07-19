@@ -27,7 +27,9 @@ class IssuanceDltService(
 
         val event = runCatching {
             jsonMapper.readValue(record.value(), IssuanceRequested::class.java)
-        }.getOrNull()?.takeIf { it.issuanceAttemptId.length <= MAX_ISSUANCE_ATTEMPT_ID_LENGTH }
+        }.getOrNull()?.takeIf {
+            it.issuanceAttemptId.isNotBlank() && it.issuanceAttemptId.length <= MAX_ISSUANCE_ATTEMPT_ID_LENGTH
+        }
         val retryCount = event?.issuanceAttemptId
             ?.let(repository::countByIssuanceAttemptId)?.toInt() ?: 0
         val exceptionType = header(record, KafkaHeaders.DLT_EXCEPTION_FQCN)?.take(MAX_EXCEPTION_TYPE_LENGTH)
