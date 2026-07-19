@@ -5,7 +5,6 @@ import jakarta.persistence.Entity
 import jakarta.persistence.Id
 import jakarta.persistence.Table
 
-// 대사 실행권과 마지막 성공 구간을 Redis가 아닌 DB에 보관한다.
 @Entity
 @Table(name = "reconcile_checkpoint")
 class ReconcileCheckpoint(

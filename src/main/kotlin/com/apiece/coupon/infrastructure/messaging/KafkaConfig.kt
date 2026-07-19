@@ -86,7 +86,6 @@ class KafkaConfig(
     ): ConcurrentKafkaListenerContainerFactory<String, ByteArray> {
         val factory = ConcurrentKafkaListenerContainerFactory<String, ByteArray>()
         factory.setConsumerFactory(dltConsumerFactory)
-        // DB 장애 중에는 DLT.DLT로 넘기거나 offset을 커밋하지 않고 같은 메시지를 다시 기록한다.
         factory.setCommonErrorHandler(
             DefaultErrorHandler(FixedBackOff(5_000L, FixedBackOff.UNLIMITED_ATTEMPTS)),
         )
