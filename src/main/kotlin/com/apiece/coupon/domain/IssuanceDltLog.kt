@@ -19,7 +19,7 @@ import java.time.LocalDateTime
     uniqueConstraints = [UniqueConstraint(name = "uk_issuance_dlt_message_key", columnNames = ["message_key"])],
     indexes = [
         Index(name = "idx_issuance_dlt_status", columnList = "status"),
-        Index(name = "idx_issuance_dlt_attempt", columnList = "issuance_attempt_id"),
+        Index(name = "idx_issuance_dlt_user_coupon", columnList = "user_id, coupon_id"),
     ],
 )
 class IssuanceDltLog(
@@ -33,8 +33,6 @@ class IssuanceDltLog(
     var couponId: Long?,
     @Column(name = "user_id")
     var userId: Long?,
-    @Column(name = "issuance_attempt_id", length = 36)
-    var issuanceAttemptId: String?,
     @Column(name = "issued_at")
     var issuedAt: LocalDateTime?,
     @Column(name = "expires_at")

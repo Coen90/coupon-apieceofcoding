@@ -19,9 +19,9 @@ git checkout <branch>
 docker compose up -d --force-recreate coupon-service
 ```
 
-`issuance_attempt_id`와 DLT 상태 이름을 바꾼 p5-1 이상을 기존 DB 볼륨에서 처음 실행할 때는 학습용 데이터이므로 한 번만 `docker compose down -v` 후 다시 올린다.
+DLT 상태 이름을 바꾼 p5-1 이상을 기존 DB 볼륨에서 처음 실행할 때는 학습용 데이터이므로 한 번만 `docker compose down -v` 후 다시 올린다.
 
-발급 후 재발급은 `issuance` 최신 행을 갱신하고 `issuance_history`에 이력을 남긴다. `force_db_only.sh`도 두 테이블에 함께 기록한다.
+`issuance`는 사용자와 쿠폰별 한 행을 유지하고 `issuance_history`에 이력을 남긴다. `force_db_only.sh`도 두 테이블에 함께 기록한다.
 
 ## 디렉토리
 
@@ -55,7 +55,7 @@ scripts/load/part-3/kafka_dlt_peek.sh   # DLT 확인 (3-2c)
 ./scripts/load/part-6/run.sh   # 6-1 part-6-1-waiting-room: Redis 대기실 통과 속도
 ./scripts/load/part-6/edge.sh  # 6-2 part-6-2-edge-rate-limit: 엣지 Rate Limit
 ```
-part-5 는 두 등식 `total = 발급누적 + Redis재고 = Redis사용자 + Redis재고` 의 잔차로 불일치를 잰다. p5-1 이상에서는 모든 issuance 주입 이벤트에 발급 시도별 `issuanceAttemptId`를 넣는다. `force_dlt` 는 DB 측(알람 대상), `force_db_only` 는 목록 측(자동 보정 대상)을 깬다.
+part-5 는 두 등식 `total = 발급누적 + Redis재고 = Redis사용자 + Redis재고` 의 잔차로 불일치를 잰다. `force_dlt` 는 DB 측(알람 대상), `force_db_only` 는 목록 측(자동 보정 대상)을 깬다.
 
 DLT consumer는 메시지와 실패 원인을 `issuance_dlt_log`에 기록한다. 운영자는 `GET /admin/issuance/dlt`로 확인하고, 원인을 해결한 뒤 `POST /admin/issuance/dlt/replay`에 `{"ids": [1, 2]}`를 보내 선택한 메시지를 재처리한다. 복원할 수 없는 메시지는 `REVIEW_REQUIRED`로 남긴다.
 
