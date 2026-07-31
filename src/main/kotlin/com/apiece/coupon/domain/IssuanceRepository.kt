@@ -7,7 +7,7 @@ import org.springframework.data.repository.query.Param
 interface IssuanceRepository : JpaRepository<Issuance, Long> {
     fun findByUserIdOrderByIssuedAtDesc(userId: Long): List<Issuance>
 
-    fun findByUserIdAndCouponId(userId: Long, couponId: Long): Issuance?
+    fun existsByUserIdAndCouponId(userId: Long, couponId: Long): Boolean
 
     @Query(
         "SELECT i.userId FROM Issuance i " +
