@@ -17,8 +17,8 @@ baseline() {
 
 wait_dlt_id() {
   for _ in $(seq 1 30); do
-    id="$(curl -fsS "$BASE/admin/issuance/dlt" | jq -r --arg attempt "$1" \
-      '.[] | select(.issuanceAttemptId == $attempt) | .id' | tail -1)"
+    id="$(curl -fsS "$BASE/admin/issuance/dlt" | jq -r --argjson user "$1" \
+      '.[] | select(.userId == $user) | .id' | tail -1)"
     [[ -n "$id" ]] && { printf '%s' "$id"; return 0; }
     sleep 1
   done
@@ -33,16 +33,16 @@ dlt_replay() {
   ./scripts/load/reset.sh >/dev/null
   cid="$(./scripts/load/create_coupon.sh)"
   COUPON_ID="$cid" COUNT=1 USER_BASE="$user_base" ./scripts/load/part-5/force_dlt.sh >/dev/null
-  attempt_id="$(redis_cli GET "coupon:$cid:issuance-attempt:$((user_base + 1))")"
-  dlt_id="$(wait_dlt_id "$attempt_id")" || { ng "DLT 로그 대기 실패"; summary "part-5-1"; }
+  user_id=$(( user_base + 1 ))
+  dlt_id="$(wait_dlt_id "$user_id")" || { ng "DLT 로그 대기 실패"; summary "part-5-1"; }
   curl -fsS -X POST "$BASE/admin/issuance/dlt/replay" \
     -H 'Content-Type: application/json' -d "{\"ids\":[$dlt_id]}" >/dev/null
+  issued_query="SELECT COUNT(*) FROM issuance WHERE user_id=$user_id AND coupon_id=$cid"
   for _ in $(seq 1 30); do
-    [[ "$(mysql_scalar "SELECT COUNT(*) FROM issuance WHERE issuance_attempt_id='$attempt_id'")" == "1" ]] && break
+    [[ "$(mysql_scalar "$issued_query")" == "1" ]] && break
     sleep 1
   done
-  check "같은 발급 시도로 DB 저장" \
-    "$(mysql_scalar "SELECT COUNT(*) FROM issuance WHERE issuance_attempt_id='$attempt_id'")" "1"
+  check "원래 발급으로 DB 저장" "$(mysql_scalar "$issued_query")" "1"
   check "DLT 로그 상태" \
     "$(mysql_scalar "SELECT status FROM issuance_dlt_log WHERE id=$dlt_id")" "REPLAYED"
   summary "part-5-1"
