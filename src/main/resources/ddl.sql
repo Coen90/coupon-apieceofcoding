@@ -27,18 +27,6 @@ CREATE TABLE issuance (
     KEY idx_issuance_status (status),
     KEY idx_issuance_coupon (coupon_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE issuance_history (
-    id                  BIGINT       NOT NULL AUTO_INCREMENT,
-    user_id             BIGINT       NOT NULL,
-    coupon_id           BIGINT       NOT NULL,
-    status              VARCHAR(16)  NOT NULL,
-    reason              VARCHAR(64)  NOT NULL,
-    recorded_at         DATETIME(3)  NOT NULL,
-    PRIMARY KEY (id),
-    KEY idx_issuance_history_user_coupon (user_id, coupon_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
 CREATE TABLE issuance_dlt_log (
     id                  BIGINT        NOT NULL AUTO_INCREMENT,
     message_key         VARCHAR(300)  NOT NULL,
