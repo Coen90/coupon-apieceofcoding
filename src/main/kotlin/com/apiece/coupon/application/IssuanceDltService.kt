@@ -27,11 +27,9 @@ class IssuanceDltService(
 
         val event = runCatching {
             jsonMapper.readValue(record.value(), IssuanceRequested::class.java)
-        }.getOrNull()?.takeIf {
-            it.issuanceAttemptId.isNotBlank() && it.issuanceAttemptId.length <= MAX_ISSUANCE_ATTEMPT_ID_LENGTH
-        }
-        val retryCount = event?.issuanceAttemptId
-            ?.let(repository::countByIssuanceAttemptId)?.toInt() ?: 0
+        }.getOrNull()?.takeIf { it.couponId > 0 && it.userId > 0 }
+        val retryCount = event
+            ?.let { repository.countByUserIdAndCouponId(it.userId, it.couponId) }?.toInt() ?: 0
         val exceptionType = header(record, KafkaHeaders.DLT_EXCEPTION_FQCN)?.take(MAX_EXCEPTION_TYPE_LENGTH)
         val invalidPayload = event == null
         val requiresReview = invalidPayload || retryCount >= MAX_DLT_REPLAY_COUNT || isNonRetryable(exceptionType)
@@ -42,7 +40,6 @@ class IssuanceDltService(
                 dltOffset = record.offset(),
                 couponId = event?.couponId,
                 userId = event?.userId,
-                issuanceAttemptId = event?.issuanceAttemptId,
                 issuedAt = event?.issuedAt,
                 expiresAt = event?.expiresAt,
                 exceptionType = exceptionType,
@@ -89,7 +86,6 @@ class IssuanceDltService(
     private fun IssuanceDltLog.toEvent() = IssuanceRequested(
         couponId = requireNotNull(couponId),
         userId = requireNotNull(userId),
-        issuanceAttemptId = requireNotNull(issuanceAttemptId),
         issuedAt = requireNotNull(issuedAt),
         expiresAt = requireNotNull(expiresAt),
     )
@@ -106,7 +102,6 @@ class IssuanceDltService(
     companion object {
         private const val MAX_DLT_REPLAY_COUNT = 3
         private const val MAX_REPLAY_COUNT = 100
-        private const val MAX_ISSUANCE_ATTEMPT_ID_LENGTH = 36
         private const val MAX_EXCEPTION_TYPE_LENGTH = 200
         private const val MAX_FAILURE_REASON_LENGTH = 500
         private val WHITESPACE = Regex("[\\r\\n\\t]+")

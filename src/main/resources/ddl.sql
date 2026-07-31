@@ -18,13 +18,11 @@ CREATE TABLE issuance (
     id              BIGINT       NOT NULL AUTO_INCREMENT,
     user_id         BIGINT       NOT NULL,
     coupon_id       BIGINT       NOT NULL,
-    issuance_attempt_id VARCHAR(36) NOT NULL,
     status          VARCHAR(16)  NOT NULL DEFAULT 'ISSUED',
     issued_at       DATETIME     NOT NULL,
     expires_at      DATETIME     NOT NULL,
     used_at         DATETIME     NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY uk_issuance_attempt_id (issuance_attempt_id),
     UNIQUE KEY uk_issuance_user_coupon (user_id, coupon_id),
     KEY idx_issuance_status (status),
     KEY idx_issuance_coupon (coupon_id)
@@ -32,7 +30,6 @@ CREATE TABLE issuance (
 
 CREATE TABLE issuance_history (
     id                  BIGINT       NOT NULL AUTO_INCREMENT,
-    issuance_attempt_id VARCHAR(36)  NOT NULL,
     user_id             BIGINT       NOT NULL,
     coupon_id           BIGINT       NOT NULL,
     status              VARCHAR(16)  NOT NULL,
@@ -49,7 +46,6 @@ CREATE TABLE issuance_dlt_log (
     dlt_offset          BIGINT        NOT NULL,
     coupon_id           BIGINT        NULL,
     user_id             BIGINT        NULL,
-    issuance_attempt_id VARCHAR(36)   NULL,
     issued_at           DATETIME(3)   NULL,
     expires_at          DATETIME(3)   NULL,
     exception_type      VARCHAR(200)  NULL,
@@ -63,5 +59,5 @@ CREATE TABLE issuance_dlt_log (
     PRIMARY KEY (id),
     UNIQUE KEY uk_issuance_dlt_message_key (message_key),
     KEY idx_issuance_dlt_status (status),
-    KEY idx_issuance_dlt_attempt (issuance_attempt_id)
+    KEY idx_issuance_dlt_user_coupon (user_id, coupon_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

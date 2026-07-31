@@ -6,6 +6,4 @@ interface IssuanceRepository : JpaRepository<Issuance, Long> {
     fun findByUserIdOrderByIssuedAtDesc(userId: Long): List<Issuance>
 
     fun findByUserIdAndCouponId(userId: Long, couponId: Long): Issuance?
-
-    fun findByIssuanceAttemptId(issuanceAttemptId: String): Issuance?
 }

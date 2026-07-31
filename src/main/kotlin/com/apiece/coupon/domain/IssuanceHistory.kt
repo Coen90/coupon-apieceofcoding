@@ -17,9 +17,6 @@ import java.time.LocalDateTime
     indexes = [Index(name = "idx_issuance_history_user_coupon", columnList = "user_id, coupon_id")],
 )
 class IssuanceHistory(
-    @Column(name = "issuance_attempt_id", nullable = false, length = 36)
-    var issuanceAttemptId: String,
-
     @Column(name = "user_id", nullable = false)
     var userId: Long,
 
