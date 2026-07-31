@@ -11,17 +11,16 @@ class IssuanceRedisRepository(
 
     private val issueScript = longLuaScript("lua/issue.lua")
 
-    fun tryIssue(couponId: Long, userId: Long, issuanceAttemptId: String): Long =
+    fun tryIssue(couponId: Long, userId: Long): Long =
         redis.runForLong(
             issueScript,
             listOf(
                 "coupon:$couponId:stock",
                 "coupon:$couponId:users",
                 "coupon:$couponId:sold_out",
-                "coupon:$couponId:issuance-attempt:$userId",
                 "coupon:reconcile:recent",
             ),
-            userId, soldOutProperties.ttlSeconds, issuanceAttemptId,
+            userId, soldOutProperties.ttlSeconds,
             System.currentTimeMillis(),
             couponId,
         )

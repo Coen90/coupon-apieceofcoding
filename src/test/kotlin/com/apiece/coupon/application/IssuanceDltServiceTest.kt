@@ -30,7 +30,7 @@ class IssuanceDltServiceTest {
 
     @Test
     fun `일시 장애는 운영자 replay 대기 상태로 기록`() {
-        every { repository.countByIssuanceAttemptId("attempt-1") } returns 0
+        every { repository.countByUserIdAndCouponId(42L, 1L) } returns 0
         val saved = slot<IssuanceDltLog>()
 
         service.record(record())
@@ -42,7 +42,7 @@ class IssuanceDltServiceTest {
 
     @Test
     fun `데이터 오류는 즉시 확인 필요 상태`() {
-        every { repository.countByIssuanceAttemptId("attempt-1") } returns 0
+        every { repository.countByUserIdAndCouponId(42L, 1L) } returns 0
         val record = record().apply {
             headers().add(RecordHeader(
                 KafkaHeaders.DLT_EXCEPTION_FQCN,
@@ -68,17 +68,17 @@ class IssuanceDltServiceTest {
         verify { repository.save(capture(saved)) }
         assertEquals(IssuanceDltStatus.REVIEW_REQUIRED, saved.captured.status)
         assertEquals("INVALID_PAYLOAD", saved.captured.decisionReason)
-        assertEquals(null, saved.captured.issuanceAttemptId)
+        assertEquals(null, saved.captured.couponId)
     }
 
     @Test
-    fun `빈 issuanceAttemptId는 확인 필요 상태로 기록`() {
+    fun `식별자가 빠진 본문은 확인 필요 상태로 기록`() {
         val invalid = ConsumerRecord(
             "issuance.requested.DLT",
             0,
             12L,
             "42",
-            """{"couponId":1,"userId":42,"issuanceAttemptId":"","issuedAt":"2026-07-15T00:00:00","expiresAt":"2026-07-22T00:00:00"}"""
+            """{"couponId":1,"userId":0,"issuedAt":"2026-07-15T00:00:00","expiresAt":"2026-07-22T00:00:00"}"""
                 .toByteArray(),
         )
         val saved = slot<IssuanceDltLog>()
@@ -92,7 +92,7 @@ class IssuanceDltServiceTest {
 
     @Test
     fun `replay 후 세 번 다시 실패하면 확인 필요 상태`() {
-        every { repository.countByIssuanceAttemptId("attempt-1") } returns 3
+        every { repository.countByUserIdAndCouponId(42L, 1L) } returns 3
         val saved = slot<IssuanceDltLog>()
 
         service.record(record())
@@ -122,7 +122,6 @@ class IssuanceDltServiceTest {
         val invalid = log(1L, IssuanceDltStatus.REVIEW_REQUIRED).apply {
             couponId = null
             userId = null
-            issuanceAttemptId = null
         }
         every { repository.findAllByIdForUpdate(listOf(1L)) } returns listOf(invalid)
 
@@ -136,7 +135,7 @@ class IssuanceDltServiceTest {
         0,
         10L,
         "42",
-        """{"couponId":1,"userId":42,"issuanceAttemptId":"attempt-1","issuedAt":"2026-07-15T00:00:00","expiresAt":"2026-07-22T00:00:00"}"""
+        """{"couponId":1,"userId":42,"issuedAt":"2026-07-15T00:00:00","expiresAt":"2026-07-22T00:00:00"}"""
             .toByteArray(),
     )
 
@@ -146,7 +145,6 @@ class IssuanceDltServiceTest {
         dltOffset = id,
         couponId = 1L,
         userId = 42L,
-        issuanceAttemptId = "attempt-$id",
         issuedAt = LocalDateTime.now(),
         expiresAt = LocalDateTime.now().plusDays(7),
         status = status,

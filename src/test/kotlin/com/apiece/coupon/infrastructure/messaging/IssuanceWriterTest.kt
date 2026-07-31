@@ -13,7 +13,6 @@ class IssuanceWriterTest {
     private val event = IssuanceRequested(
         couponId = 1L,
         userId = 42L,
-        issuanceAttemptId = "attempt-1",
         issuedAt = LocalDateTime.now(),
         expiresAt = LocalDateTime.now().plusDays(7),
     )

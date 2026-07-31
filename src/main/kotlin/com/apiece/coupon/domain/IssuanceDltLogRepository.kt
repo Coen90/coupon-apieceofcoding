@@ -8,7 +8,7 @@ import org.springframework.data.repository.query.Param
 
 interface IssuanceDltLogRepository : JpaRepository<IssuanceDltLog, Long> {
     fun findByMessageKey(messageKey: String): IssuanceDltLog?
-    fun countByIssuanceAttemptId(issuanceAttemptId: String): Long
+    fun countByUserIdAndCouponId(userId: Long, couponId: Long): Long
     fun findTop100ByOrderByReceivedAtDesc(): List<IssuanceDltLog>
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
