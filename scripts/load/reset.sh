@@ -8,7 +8,7 @@ mysql_exec() {
   docker compose exec -T -e MYSQL_PWD=coupon mysql mysql -ucoupon -BN coupon -e "$1"
 }
 
-for table in issuance_history issuance_dlt_log reconcile_checkpoint; do
+for table in issuance_dlt_log reconcile_checkpoint; do
   if [[ "$(mysql_exec "SELECT COUNT(*) FROM information_schema.tables
                         WHERE table_schema='coupon' AND table_name='$table'")" == "1" ]]; then
     mysql_exec "TRUNCATE TABLE $table"
