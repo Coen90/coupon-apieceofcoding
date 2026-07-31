@@ -28,8 +28,7 @@ class IssuanceDltService(
         val event = runCatching {
             jsonMapper.readValue(record.value(), IssuanceRequested::class.java)
         }.getOrNull()?.takeIf { it.couponId > 0 && it.userId > 0 }
-        val retryCount = event
-            ?.let { repository.countByUserIdAndCouponId(it.userId, it.couponId) }?.toInt() ?: 0
+        val retryCount = event?.let { repository.countByUserIdAndCouponId(it.userId, it.couponId).toInt() } ?: 0
         val exceptionType = header(record, KafkaHeaders.DLT_EXCEPTION_FQCN)?.take(MAX_EXCEPTION_TYPE_LENGTH)
         val invalidPayload = event == null
         val requiresReview = invalidPayload || retryCount >= MAX_DLT_REPLAY_COUNT || isNonRetryable(exceptionType)
