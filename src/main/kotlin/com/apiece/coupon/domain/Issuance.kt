@@ -37,7 +37,7 @@ class Issuance(
     @Column(nullable = false, length = 16)
     var status: IssuanceStatus = IssuanceStatus.ISSUED,
 
-    @Column(name = "issued_at", nullable = false)
+    @Column(name = "issued_at", nullable = false, updatable = false)
     var issuedAt: LocalDateTime,
 
     @Column(name = "expires_at", nullable = false)
