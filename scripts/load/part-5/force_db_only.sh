@@ -12,33 +12,21 @@ printf '\n\033[1;36m===== [상황 만들기] DB 엔 발급됐는데 Redis 명단
   "$COUNT"
 
 values=""
-history_values=""
 first=0; last=0
-has_history="$(mysql_exec "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='coupon' AND table_name='issuance_history'")"
 for i in $(seq 1 "$COUNT"); do
   uid=$(( USER_BASE + i ))
   if (( i == 1 )); then first=$uid; fi
   last=$uid
   [[ -n "$values" ]] && values+=","
   values+="($uid, $COUPON_ID, 'ISSUED', NOW(), DATE_ADD(NOW(), INTERVAL 7 DAY))"
-  if [[ "$has_history" == "1" ]]; then
-    [[ -n "$history_values" ]] && history_values+=","
-    history_values+="($uid, $COUPON_ID, 'ISSUED', 'FORCE_DB_ONLY', NOW())"
-  fi
 done
 if [[ "$(mysql_exec "SELECT COUNT(*) FROM issuance WHERE coupon_id = $COUPON_ID AND user_id BETWEEN $first AND $last")" != "0" ]]; then
   printf '\033[1;33m  이미 주입된 쿠폰입니다. 먼저 ./scripts/load/reset.sh 로 초기화한 뒤 다시 실행하세요.\033[0m\n'
   exit 1
 fi
 
-if [[ "$has_history" == "1" ]]; then
-  mysql_exec "INSERT INTO issuance (user_id, coupon_id, status, issued_at, expires_at) VALUES $values;
-              INSERT INTO issuance_history (user_id, coupon_id, status, reason, recorded_at) VALUES $history_values;
-              UPDATE coupon SET issued_quantity = issued_quantity + $COUNT WHERE id = $COUPON_ID;"
-else
-  mysql_exec "INSERT INTO issuance (user_id, coupon_id, status, issued_at, expires_at) VALUES $values;
-              UPDATE coupon SET issued_quantity = issued_quantity + $COUNT WHERE id = $COUPON_ID;"
-fi
+mysql_exec "INSERT INTO issuance (user_id, coupon_id, status, issued_at, expires_at) VALUES $values;
+            UPDATE coupon SET issued_quantity = issued_quantity + $COUNT WHERE id = $COUPON_ID;"
 printf '  DB: 발급 기록 %s건 추가 + 발급 수 %s 증가 (%s~%s번)\n' \
   "$COUNT" "$COUNT" "$first" "$last"
 
