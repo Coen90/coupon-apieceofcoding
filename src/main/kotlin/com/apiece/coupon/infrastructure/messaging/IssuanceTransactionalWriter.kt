@@ -17,21 +17,15 @@ class IssuanceTransactionalWriter(
 ) {
     @Transactional
     fun insertAndIncrement(event: IssuanceRequested) {
-        val current = issuanceRepository.findByUserIdAndCouponId(event.userId, event.couponId)
-        if (current != null) {
-            if (current.issuanceAttemptId == event.issuanceAttemptId || current.status != IssuanceStatus.CANCELED) return
-            current.reissue(event.issuanceAttemptId, event.issuedAt, event.expiresAt)
-        } else {
-            issuanceRepository.save(Issuance(
-                userId = event.userId,
-                couponId = event.couponId,
-                issuanceAttemptId = event.issuanceAttemptId,
-                issuedAt = event.issuedAt,
-                expiresAt = event.expiresAt,
-            ))
-        }
+        if (issuanceRepository.findByUserIdAndCouponId(event.userId, event.couponId) != null) return
+
+        issuanceRepository.save(Issuance(
+            userId = event.userId,
+            couponId = event.couponId,
+            issuedAt = event.issuedAt,
+            expiresAt = event.expiresAt,
+        ))
         issuanceHistoryRepository.save(IssuanceHistory(
-            issuanceAttemptId = event.issuanceAttemptId,
             userId = event.userId,
             couponId = event.couponId,
             status = IssuanceStatus.ISSUED,
@@ -42,8 +36,6 @@ class IssuanceTransactionalWriter(
     }
 
     @Transactional(readOnly = true)
-    fun isAlreadyApplied(event: IssuanceRequested): Boolean {
-        val issuance = issuanceRepository.findByIssuanceAttemptId(event.issuanceAttemptId) ?: return false
-        return issuance.userId == event.userId && issuance.couponId == event.couponId
-    }
+    fun isAlreadyApplied(event: IssuanceRequested): Boolean =
+        issuanceRepository.findByUserIdAndCouponId(event.userId, event.couponId) != null
 }

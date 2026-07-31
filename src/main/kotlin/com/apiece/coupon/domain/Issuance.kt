@@ -11,7 +11,6 @@ import jakarta.persistence.Index
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
 import java.time.LocalDateTime
-import java.util.UUID
 
 @Entity
 @Table(
@@ -33,9 +32,6 @@ class Issuance(
 
     @Column(name = "coupon_id", nullable = false)
     var couponId: Long,
-
-    @Column(name = "issuance_attempt_id", nullable = false, unique = true, length = 36)
-    var issuanceAttemptId: String = UUID.randomUUID().toString(),
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)
@@ -59,13 +55,5 @@ class Issuance(
     fun markUsed(now: LocalDateTime) {
         status = IssuanceStatus.USED
         usedAt = now
-    }
-
-    fun reissue(attemptId: String, issuedAt: LocalDateTime, expiresAt: LocalDateTime) {
-        issuanceAttemptId = attemptId
-        status = IssuanceStatus.ISSUED
-        this.issuedAt = issuedAt
-        this.expiresAt = expiresAt
-        usedAt = null
     }
 }

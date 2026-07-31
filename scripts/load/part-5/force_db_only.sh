@@ -14,19 +14,16 @@ printf '\n\033[1;36m===== [상황 만들기] DB 엔 발급됐는데 Redis 명단
 values=""
 history_values=""
 first=0; last=0
-has_attempt_id="$(mysql_exec "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='coupon' AND table_name='issuance' AND column_name='issuance_attempt_id'")"
+has_history="$(mysql_exec "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='coupon' AND table_name='issuance_history'")"
 for i in $(seq 1 "$COUNT"); do
   uid=$(( USER_BASE + i ))
   if (( i == 1 )); then first=$uid; fi
   last=$uid
   [[ -n "$values" ]] && values+=","
-  if [[ "$has_attempt_id" == "1" ]]; then
-    issuance_attempt_id="$(uuidgen | tr '[:upper:]' '[:lower:]')"
-    values+="($uid, $COUPON_ID, '$issuance_attempt_id', 'ISSUED', NOW(), DATE_ADD(NOW(), INTERVAL 7 DAY))"
+  values+="($uid, $COUPON_ID, 'ISSUED', NOW(), DATE_ADD(NOW(), INTERVAL 7 DAY))"
+  if [[ "$has_history" == "1" ]]; then
     [[ -n "$history_values" ]] && history_values+=","
-    history_values+="('$issuance_attempt_id', $uid, $COUPON_ID, 'ISSUED', 'FORCE_DB_ONLY', NOW())"
-  else
-    values+="($uid, $COUPON_ID, NOW(), DATE_ADD(NOW(), INTERVAL 7 DAY), 'ISSUED')"
+    history_values+="($uid, $COUPON_ID, 'ISSUED', 'FORCE_DB_ONLY', NOW())"
   fi
 done
 if [[ "$(mysql_exec "SELECT COUNT(*) FROM issuance WHERE coupon_id = $COUPON_ID AND user_id BETWEEN $first AND $last")" != "0" ]]; then
@@ -34,12 +31,12 @@ if [[ "$(mysql_exec "SELECT COUNT(*) FROM issuance WHERE coupon_id = $COUPON_ID 
   exit 1
 fi
 
-if [[ "$has_attempt_id" == "1" ]]; then
-  mysql_exec "INSERT INTO issuance (user_id, coupon_id, issuance_attempt_id, status, issued_at, expires_at) VALUES $values;
-              INSERT INTO issuance_history (issuance_attempt_id, user_id, coupon_id, status, reason, recorded_at) VALUES $history_values;
+if [[ "$has_history" == "1" ]]; then
+  mysql_exec "INSERT INTO issuance (user_id, coupon_id, status, issued_at, expires_at) VALUES $values;
+              INSERT INTO issuance_history (user_id, coupon_id, status, reason, recorded_at) VALUES $history_values;
               UPDATE coupon SET issued_quantity = issued_quantity + $COUNT WHERE id = $COUPON_ID;"
 else
-  mysql_exec "INSERT INTO issuance (user_id, coupon_id, issued_at, expires_at, status) VALUES $values;
+  mysql_exec "INSERT INTO issuance (user_id, coupon_id, status, issued_at, expires_at) VALUES $values;
               UPDATE coupon SET issued_quantity = issued_quantity + $COUNT WHERE id = $COUPON_ID;"
 fi
 printf '  DB: 발급 기록 %s건 추가 + 발급 수 %s 증가 (%s~%s번)\n' \

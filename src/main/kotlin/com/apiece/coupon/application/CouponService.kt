@@ -11,7 +11,6 @@ import com.apiece.coupon.support.SoldOutException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
-import java.util.UUID
 
 @Service
 class CouponService(
@@ -48,15 +47,13 @@ class CouponService(
             throw NotStartedException()
         }
 
-        val issuanceAttemptId = UUID.randomUUID().toString()
-        couponIssuer.tryIssue(couponId, userId, issuanceAttemptId)
+        couponIssuer.tryIssue(couponId, userId)
 
         val expiresAt = now.plusDays(policy.validityDays.toLong())
         issuanceRequestProducer.publish(
             IssuanceRequested(
                 couponId = couponId,
                 userId = userId,
-                issuanceAttemptId = issuanceAttemptId,
                 issuedAt = now,
                 expiresAt = expiresAt,
             )

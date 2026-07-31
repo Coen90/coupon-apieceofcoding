@@ -47,11 +47,10 @@ class CouponServiceTest {
 
         val result = service.issue(1L, 42L)
 
-        verify { couponIssuer.tryIssue(1L, 42L, any()) }
+        verify { couponIssuer.tryIssue(1L, 42L) }
         verify { producer.publish(any()) }
         assertEquals(42L, captured.captured.userId)
         assertEquals(1L, captured.captured.couponId)
-        assertEquals(36, captured.captured.issuanceAttemptId.length)
         assertEquals(42L, result.userId)
         assertEquals(1L, result.couponId)
         assertNull(result.id)
@@ -73,7 +72,7 @@ class CouponServiceTest {
     @Test
     fun `Issuer 가 SoldOutException 을 던지면 그대로 전파 (publish 없음)`() {
         every { couponIssuePolicyReader.get(1L) } returns CouponIssuePolicy(startsAt = null, validityDays = 7)
-        every { couponIssuer.tryIssue(1L, 42L, any()) } throws SoldOutException()
+        every { couponIssuer.tryIssue(1L, 42L) } throws SoldOutException()
 
         assertFailsWith<SoldOutException> { service.issue(1L, 42L) }
         verify(exactly = 0) { producer.publish(any()) }
@@ -92,7 +91,7 @@ class CouponServiceTest {
     @Test
     fun `Issuer 가 AlreadyIssuedException 을 던지면 그대로 전파`() {
         every { couponIssuePolicyReader.get(1L) } returns CouponIssuePolicy(startsAt = null, validityDays = 7)
-        every { couponIssuer.tryIssue(1L, 42L, any()) } throws AlreadyIssuedException()
+        every { couponIssuer.tryIssue(1L, 42L) } throws AlreadyIssuedException()
         assertFailsWith<AlreadyIssuedException> { service.issue(1L, 42L) }
     }
 

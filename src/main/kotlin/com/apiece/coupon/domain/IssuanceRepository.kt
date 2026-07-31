@@ -9,8 +9,6 @@ interface IssuanceRepository : JpaRepository<Issuance, Long> {
 
     fun findByUserIdAndCouponId(userId: Long, couponId: Long): Issuance?
 
-    fun findByIssuanceAttemptId(issuanceAttemptId: String): Issuance?
-
     @Query(
         "SELECT i.userId FROM Issuance i " +
             "WHERE i.couponId = :couponId " +
