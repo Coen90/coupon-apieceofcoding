@@ -13,11 +13,11 @@ import java.time.Duration
 class SoldOutState(
     private val soldOutRedisRepository: SoldOutRedisRepository,
     private val cacheMetrics: CacheMetrics,
-    properties: SoldOutProperties,
+    soldOutProperties: SoldOutProperties,
 ) {
 
-    private val cache: LoadingCache<Long, Boolean> = Caffeine.newBuilder()
-        .expireAfterWrite(Duration.ofMillis(properties.fastPathTtlMs))
+    private val soldOutCache: LoadingCache<Long, Boolean> = Caffeine.newBuilder()
+        .expireAfterWrite(Duration.ofMillis(soldOutProperties.fastPathTtlMs))
         .maximumSize(MAX_TRACKED_COUPONS)
         .build { couponId ->
             cacheMetrics.incrementSoldOutRedisExists()
@@ -25,7 +25,7 @@ class SoldOutState(
         }
 
     fun isSoldOut(couponId: Long): Boolean {
-        val soldOut = cache.get(couponId) ?: false
+        val soldOut = soldOutCache.get(couponId) ?: false
         if (soldOut) cacheMetrics.incrementSoldOutFastPathHit()
         return soldOut
     }
