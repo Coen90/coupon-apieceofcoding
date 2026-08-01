@@ -7,12 +7,15 @@ import com.apiece.coupon.infrastructure.messaging.IssuanceRequestProducer
 import com.apiece.coupon.infrastructure.messaging.IssuanceRequested
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import tools.jackson.databind.json.JsonMapper
 
 @Service
 class IssuanceDltReplayService(
     private val issuanceDltLogRepository: IssuanceDltLogRepository,
     private val issuanceRequestProducer: IssuanceRequestProducer,
 ) {
+    private val jsonMapper = JsonMapper.builder().findAndAddModules().build()
+
     @Transactional
     fun replay(ids: List<Long>): Int {
         val selectedIds = ids.distinct()
@@ -23,25 +26,20 @@ class IssuanceDltReplayService(
         check(logs.size == selectedIds.size) { "Some DLT logs were not found" }
 
         val events = logs.map { log ->
-            check(log.status == IssuanceDltStatus.PENDING || log.status == IssuanceDltStatus.REVIEW_REQUIRED) {
-                "Only pending or review-required DLT logs can be replayed: ${log.id}"
+            check(log.status == IssuanceDltStatus.PENDING) {
+                "Only pending DLT logs can be replayed: ${log.id}"
             }
             log.toEvent()
         }
         logs.zip(events).forEach { (log, event) ->
             issuanceRequestProducer.publishAndWait(event)
             log.status = IssuanceDltStatus.REPLAYED
-            log.decisionReason = "OPERATOR_REPLAY"
         }
         return logs.size
     }
 
-    private fun IssuanceDltLog.toEvent() = IssuanceRequested(
-        couponId = requireNotNull(couponId),
-        userId = requireNotNull(userId),
-        issuedAt = requireNotNull(issuedAt),
-        expiresAt = requireNotNull(expiresAt),
-    )
+    private fun IssuanceDltLog.toEvent(): IssuanceRequested =
+        jsonMapper.readValue(payload, IssuanceRequested::class.java)
 
     private companion object {
         const val MAX_REPLAY_COUNT = 100
