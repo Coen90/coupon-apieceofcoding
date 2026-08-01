@@ -15,33 +15,18 @@ class Reconciler(
     private val reconcileRedisRepository: CouponReconcileRedisRepository,
     private val reconcileProperties: ReconcileProperties,
     private val reconcileMetrics: ReconcileMetrics,
-    private val reconcileCheckpointStore: ReconcileCheckpointStore,
     private val couponReconciler: CouponReconciler,
 ) {
     @Scheduled(fixedRateString = "\${coupon.reconcile.interval-ms}")
     fun scheduledRecent() {
-        if (!reconcileCheckpointStore.acquire()) {
-            log.info { "다른 인스턴스가 reconcile lease를 가지고 있어 이번 호출은 건너뜀" }
-            return
-        }
         val cutoffMs = System.currentTimeMillis() - reconcileProperties.gracePeriodMs
-        try {
-            val fromMs = reconcileCheckpointStore.lastSuccessCutoffMs().takeIf { it > 0 }
-                ?: (cutoffMs - reconcileProperties.intervalMs)
-            val report = reconcileWindow(fromMs, cutoffMs, renewLease = true)
-            if (report.failedCoupons == 0) reconcileCheckpointStore.markSuccess(cutoffMs)
-        } finally {
-            reconcileCheckpointStore.release()
-        }
+        val fromMs = cutoffMs - reconcileProperties.intervalMs * 2
+        reconcileWindow(fromMs, cutoffMs)
     }
 
     @Scheduled(cron = "\${coupon.reconcile.audit-cron}")
     fun scheduledAudit() {
-        val report = tryAuditAll()
-        if (report == null) {
-            log.info { "다른 인스턴스가 reconcile lease를 가지고 있어 일일 전수 audit을 건너뜀" }
-            return
-        }
+        val report = auditAll()
         log.info { "일일 전수 audit 완료 checked=${report.checkedCoupons} alerts=${report.driftAlerts}" }
     }
 
@@ -50,34 +35,18 @@ class Reconciler(
         return reconcileWindow(0, cutoffMs)
     }
 
-    fun auditAll(): ReconcileReport = tryAuditAll() ?: ReconcileReport()
-
-    private fun tryAuditAll(): ReconcileReport? {
-        if (!reconcileCheckpointStore.acquire()) return null
-        return try {
-            val couponIds = couponRepository.findAll().mapNotNull { it.id }
-            reconcileCoupons(couponIds, renewLease = true)
-        } finally {
-            reconcileCheckpointStore.release()
-        }
-    }
+    fun auditAll(): ReconcileReport = reconcileCoupons(couponRepository.findAll().mapNotNull { it.id })
 
     private fun reconcileWindow(
         fromExclusiveMs: Long,
         toInclusiveMs: Long,
-        renewLease: Boolean = false,
     ): ReconcileReport {
         val couponIds = reconcileRedisRepository.couponIdsIssuedBetween(fromExclusiveMs, toInclusiveMs)
-        return reconcileCoupons(couponIds, renewLease)
+        return reconcileCoupons(couponIds)
     }
 
-    private fun reconcileCoupons(couponIds: List<Long>, renewLease: Boolean = false): ReconcileReport {
-        var nextRenewAt = System.currentTimeMillis() + reconcileProperties.leaseMs / 3
+    private fun reconcileCoupons(couponIds: List<Long>): ReconcileReport {
         val outcomes = couponIds.map { couponId ->
-            if (renewLease && System.currentTimeMillis() >= nextRenewAt) {
-                check(reconcileCheckpointStore.renew()) { "reconcile lease lost" }
-                nextRenewAt = System.currentTimeMillis() + reconcileProperties.leaseMs / 3
-            }
             try {
                 couponReconciler.reconcile(couponId)
             } catch (e: Exception) {
