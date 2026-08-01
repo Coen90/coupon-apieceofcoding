@@ -14,7 +14,6 @@ fi
 total="$(mysql_scalar "SELECT total_quantity FROM coupon WHERE id=$COUPON_ID")"
 issued="$(mysql_scalar "SELECT issued_quantity FROM coupon WHERE id=$COUPON_ID")"
 issued_rows="$(mysql_scalar "SELECT COUNT(*) FROM issuance WHERE coupon_id=$COUPON_ID AND status='ISSUED'")"
-canceled_rows="$(mysql_scalar "SELECT COUNT(*) FROM issuance WHERE coupon_id=$COUPON_ID AND status='CANCELED'")"
 stock="$(redis_cli GET "coupon:$COUPON_ID:stock")"; stock="${stock:-0}"
 users="$(redis_cli SCARD "coupon:$COUPON_ID:users")"
 sold_out="$(redis_cli EXISTS "coupon:$COUPON_ID:sold_out")"
@@ -24,7 +23,7 @@ list_gap=$((total - users - stock))
 
 printf '\n\033[1;36m===== 쿠폰 %s 상태 =====\033[0m\n' "$COUPON_ID"
 printf '  총 수량          : %s\n' "$total"
-printf '  DB 발급 수       : %s (ISSUED %s, 취소 %s)\n' "$issued" "$issued_rows" "$canceled_rows"
+printf '  DB 발급 수       : %s (ISSUED %s)\n' "$issued" "$issued_rows"
 printf '  Redis 잔여 재고  : %s\n' "$stock"
 printf '  Redis 사용자 수  : %s\n' "$users"
 printf '  매진 표시        : %s\n' "$sold_out"
