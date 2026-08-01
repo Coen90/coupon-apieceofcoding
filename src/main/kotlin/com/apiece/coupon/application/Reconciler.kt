@@ -114,14 +114,16 @@ class Reconciler(
         val stockNegative = s.stock < 0
         if (stockNegative) log.warn { "재고 음수 감지 coupon=$couponId stock=${s.stock}" }
 
-        if (s.stock > 0 && s.soldOut) {
-            reconcileRedisRepository.deleteSoldOut(couponId)
-            autoFixed++
-            log.info { "auto-fix: 매진 플래그 해제 coupon=$couponId" }
-        } else if (s.stock == 0L && !s.soldOut) {
-            reconcileRedisRepository.setSoldOut(couponId, soldOutProperties.ttlSeconds)
-            autoFixed++
-            log.info { "auto-fix: 매진 플래그 설정 coupon=$couponId" }
+        if (s.dbResidual == 0L) {
+            if (s.stock > 0 && s.soldOut) {
+                reconcileRedisRepository.deleteSoldOut(couponId)
+                autoFixed++
+                log.info { "auto-fix: 매진 플래그 해제 coupon=$couponId" }
+            } else if (s.stock == 0L && !s.soldOut) {
+                reconcileRedisRepository.setSoldOut(couponId, soldOutProperties.ttlSeconds)
+                autoFixed++
+                log.info { "auto-fix: 매진 플래그 설정 coupon=$couponId" }
+            }
         }
 
         var listDriftAlert = false
