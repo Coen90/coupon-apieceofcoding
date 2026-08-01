@@ -5,25 +5,19 @@ import java.time.LocalDateTime
 
 class IssuanceDltResponse(
     val id: Long,
-    val couponId: Long?,
-    val userId: Long?,
-    val exceptionType: String?,
-    val failureReason: String?,
-    val retryCount: Int,
+    val messageKey: String,
+    val payload: String,
+    val errorMessage: String?,
     val status: String,
-    val decisionReason: String?,
     val receivedAt: LocalDateTime,
 ) {
     companion object {
         fun from(log: IssuanceDltLog) = IssuanceDltResponse(
             id = log.id!!,
-            couponId = log.couponId,
-            userId = log.userId,
-            exceptionType = log.exceptionType,
-            failureReason = log.failureReason,
-            retryCount = log.retryCount,
+            messageKey = log.messageKey,
+            payload = log.payload,
+            errorMessage = log.errorMessage,
             status = log.status.name,
-            decisionReason = log.decisionReason,
             receivedAt = log.receivedAt,
         )
     }

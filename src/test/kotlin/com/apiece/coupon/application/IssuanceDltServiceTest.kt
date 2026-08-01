@@ -3,7 +3,6 @@ package com.apiece.coupon.application
 import com.apiece.coupon.domain.IssuanceDltLog
 import com.apiece.coupon.domain.IssuanceDltLogRepository
 import com.apiece.coupon.domain.IssuanceDltStatus
-import com.apiece.coupon.infrastructure.messaging.IssuanceDltRecordParser
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
@@ -16,10 +15,7 @@ import kotlin.test.assertEquals
 
 class IssuanceDltServiceTest {
     private val issuanceDltLogRepository = mockk<IssuanceDltLogRepository>(relaxed = true)
-    private val service = IssuanceDltService(
-        issuanceDltLogRepository,
-        IssuanceDltRecordParser(),
-    )
+    private val service = IssuanceDltService(issuanceDltLogRepository)
 
     init {
         every { issuanceDltLogRepository.existsByMessageKey(any()) } returns false
@@ -27,85 +23,51 @@ class IssuanceDltServiceTest {
     }
 
     @Test
-    fun `일시 장애는 운영자 replay 대기 상태로 기록`() {
-        every { issuanceDltLogRepository.countByUserIdAndCouponId(42L, 1L) } returns 0
-        val saved = slot<IssuanceDltLog>()
-
-        service.record(record())
-
-        verify { issuanceDltLogRepository.save(capture(saved)) }
-        assertEquals(IssuanceDltStatus.PENDING, saved.captured.status)
-        assertEquals(0, saved.captured.retryCount)
-    }
-
-    @Test
-    fun `데이터 오류는 즉시 확인 필요 상태`() {
-        every { issuanceDltLogRepository.countByUserIdAndCouponId(42L, 1L) } returns 0
-        val record = record().apply {
-            headers().add(RecordHeader(
-                KafkaHeaders.DLT_EXCEPTION_FQCN,
-                "org.springframework.kafka.support.serializer.DeserializationException".toByteArray(),
-            ))
+    fun `DLT 메시지 원문과 오류 메시지를 판단 없이 기록`() {
+        val record = record(VALID_PAYLOAD).apply {
+            headers().add(RecordHeader(KafkaHeaders.DLT_EXCEPTION_MESSAGE, "MySQL connection failed".toByteArray()))
         }
         val saved = slot<IssuanceDltLog>()
 
         service.record(record)
 
         verify { issuanceDltLogRepository.save(capture(saved)) }
-        assertEquals(IssuanceDltStatus.REVIEW_REQUIRED, saved.captured.status)
-        assertEquals("NON_RETRYABLE_ERROR", saved.captured.decisionReason)
+        assertEquals("issuance.requested.DLT:0:10", saved.captured.messageKey)
+        assertEquals(VALID_PAYLOAD, saved.captured.payload)
+        assertEquals("MySQL connection failed", saved.captured.errorMessage)
+        assertEquals(IssuanceDltStatus.PENDING, saved.captured.status)
     }
 
     @Test
-    fun `본문을 읽을 수 없어도 DLT 로그에 확인 필요 상태`() {
-        val malformed = ConsumerRecord("issuance.requested.DLT", 0, 11L, "42", "{".toByteArray())
+    fun `본문을 읽을 수 없어도 원문 그대로 기록`() {
         val saved = slot<IssuanceDltLog>()
 
-        service.record(malformed)
+        service.record(record("{"))
 
         verify { issuanceDltLogRepository.save(capture(saved)) }
-        assertEquals(IssuanceDltStatus.REVIEW_REQUIRED, saved.captured.status)
-        assertEquals("INVALID_PAYLOAD", saved.captured.decisionReason)
-        assertEquals(null, saved.captured.couponId)
+        assertEquals("{", saved.captured.payload)
+        assertEquals(IssuanceDltStatus.PENDING, saved.captured.status)
     }
 
     @Test
-    fun `식별자가 빠진 본문은 확인 필요 상태로 기록`() {
-        val invalid = ConsumerRecord(
-            "issuance.requested.DLT",
-            0,
-            12L,
-            "42",
-            """{"couponId":1,"userId":0,"issuedAt":"2026-07-15T00:00:00","expiresAt":"2026-07-22T00:00:00"}"""
-                .toByteArray(),
-        )
-        val saved = slot<IssuanceDltLog>()
+    fun `이미 기록한 Kafka 레코드는 다시 저장하지 않음`() {
+        every { issuanceDltLogRepository.existsByMessageKey("issuance.requested.DLT:0:10") } returns true
 
-        service.record(invalid)
+        service.record(record(VALID_PAYLOAD))
 
-        verify { issuanceDltLogRepository.save(capture(saved)) }
-        assertEquals(IssuanceDltStatus.REVIEW_REQUIRED, saved.captured.status)
-        assertEquals("INVALID_PAYLOAD", saved.captured.decisionReason)
+        verify(exactly = 0) { issuanceDltLogRepository.save(any()) }
     }
 
-    @Test
-    fun `replay 후 세 번 다시 실패하면 확인 필요 상태`() {
-        every { issuanceDltLogRepository.countByUserIdAndCouponId(42L, 1L) } returns 3
-        val saved = slot<IssuanceDltLog>()
-
-        service.record(record())
-
-        verify { issuanceDltLogRepository.save(capture(saved)) }
-        assertEquals(IssuanceDltStatus.REVIEW_REQUIRED, saved.captured.status)
-        assertEquals("REPLAY_LIMIT_EXCEEDED", saved.captured.decisionReason)
-    }
-
-    private fun record() = ConsumerRecord(
+    private fun record(payload: String) = ConsumerRecord(
         "issuance.requested.DLT",
         0,
         10L,
         "42",
-        """{"couponId":1,"userId":42,"issuedAt":"2026-07-15T00:00:00","expiresAt":"2026-07-22T00:00:00"}"""
-            .toByteArray(),
+        payload.toByteArray(),
     )
+
+    private companion object {
+        const val VALID_PAYLOAD =
+            """{"couponId":1,"userId":42,"issuedAt":"2026-07-15T00:00:00","expiresAt":"2026-07-22T00:00:00"}"""
+    }
 }

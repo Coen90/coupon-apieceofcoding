@@ -30,18 +30,10 @@ CREATE TABLE issuance (
 CREATE TABLE issuance_dlt_log (
     id                  BIGINT        NOT NULL AUTO_INCREMENT,
     message_key         VARCHAR(300)  NOT NULL,
-    coupon_id           BIGINT        NULL,
-    user_id             BIGINT        NULL,
-    issued_at           DATETIME(3)   NULL,
-    expires_at          DATETIME(3)   NULL,
-    exception_type      VARCHAR(200)  NULL,
-    failure_reason      VARCHAR(500)  NULL,
-    retry_count         INT           NOT NULL DEFAULT 0,
+    payload             TEXT          NOT NULL,
+    error_message       TEXT          NULL,
     status              VARCHAR(16)   NOT NULL DEFAULT 'PENDING',
-    decision_reason     VARCHAR(64)   NULL,
     received_at         DATETIME(3)   NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY uk_issuance_dlt_message_key (message_key),
-    KEY idx_issuance_dlt_status (status),
-    KEY idx_issuance_dlt_user_coupon (user_id, coupon_id)
+    KEY idx_issuance_dlt_message_key (message_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -52,4 +52,4 @@ scripts/load/part-3/kafka_dlt_peek.sh   # DLT 확인 (3-2c)
 
 part-5 는 두 등식 `total = 발급누적 + Redis재고 = Redis사용자 + Redis재고` 의 잔차로 불일치를 잰다. `force_dlt` 는 DB 측(알람 대상), `force_db_only` 는 목록 측(자동 보정 대상)을 깬다.
 
-DLT consumer는 메시지와 실패 원인을 `issuance_dlt_log`에 기록한다. 운영자는 `GET /admin/issuance/dlt`로 확인하고, 원인을 해결한 뒤 `POST /admin/issuance/dlt/replay`에 `{"ids": [1, 2]}`를 보내 선택한 메시지를 재처리한다. 복원할 수 없는 메시지는 `REVIEW_REQUIRED`로 남긴다.
+DLT consumer는 실패한 메시지 원문과 Kafka 오류 메시지를 `issuance_dlt_log`에 기록한다. 운영자는 `GET /admin/issuance/dlt`로 확인하고, 원인을 해결한 뒤 `POST /admin/issuance/dlt/replay`에 `{"ids": [1, 2]}`를 보내 선택한 메시지를 재처리한다.

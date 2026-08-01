@@ -17,8 +17,7 @@ baseline() {
 
 wait_dlt_id() {
   for _ in $(seq 1 30); do
-    id="$(curl -fsS "$BASE/admin/issuance/dlt" | jq -r --argjson user "$1" \
-      '.[] | select(.userId == $user) | .id' | tail -1)"
+    id="$(curl -fsS "$BASE/admin/issuance/dlt" | jq -r '.[0].id // empty')"
     [[ -n "$id" ]] && { printf '%s' "$id"; return 0; }
     sleep 1
   done
@@ -34,7 +33,7 @@ dlt_replay() {
   cid="$(./scripts/load/create_coupon.sh)"
   COUPON_ID="$cid" COUNT=1 USER_BASE="$user_base" ./scripts/load/part-5/force_dlt.sh >/dev/null
   user_id=$(( user_base + 1 ))
-  dlt_id="$(wait_dlt_id "$user_id")" || { ng "DLT 로그 대기 실패"; summary "part-5-1"; }
+  dlt_id="$(wait_dlt_id)" || { ng "DLT 로그 대기 실패"; summary "part-5-1"; }
   curl -fsS -X POST "$BASE/admin/issuance/dlt/replay" \
     -H 'Content-Type: application/json' -d "{\"ids\":[$dlt_id]}" >/dev/null
   issued_query="SELECT COUNT(*) FROM issuance WHERE user_id=$user_id AND coupon_id=$cid"
