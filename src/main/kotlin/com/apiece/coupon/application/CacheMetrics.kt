@@ -3,7 +3,6 @@ package com.apiece.coupon.application
 import org.springframework.stereotype.Component
 import java.util.concurrent.atomic.AtomicLong
 
-// 부하 측정용. 단일 인스턴스 비교라 Prometheus 대신 AtomicLong 으로 간단히.
 @Component
 class CacheMetrics {
     private val couponDbReads = AtomicLong()
