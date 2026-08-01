@@ -8,11 +8,11 @@ private val log = KotlinLogging.logger {}
 
 @Component
 class IssuanceWriter(
-    private val transactional: IssuanceTransactionalWriter,
+    private val issuanceTransactionalWriter: IssuanceTransactionalWriter,
 ) {
     fun write(event: IssuanceRequested) {
         try {
-            transactional.insertAndIncrement(event)
+            issuanceTransactionalWriter.insertAndIncrement(event)
         } catch (e: DataIntegrityViolationException) {
             log.debug { "UNIQUE 위반은 멱등 처리: couponId=${event.couponId}, userId=${event.userId}" }
         }
