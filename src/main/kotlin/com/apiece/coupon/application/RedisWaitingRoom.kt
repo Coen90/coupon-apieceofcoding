@@ -28,13 +28,13 @@ class RedisWaitingRoom(
 
     override fun status(couponId: Long, userId: Long): Admission =
         try {
-            when (val position = repository.status(couponId, userId)) {
+            when (val position = waitingRoomRedisRepository.status(couponId, userId)) {
                 null -> throw WaitingRoomNotEnteredException()
                 0L -> Admission.ADMITTED
-                else -> Admission.waiting(position, properties.admitPerSecond)
+                else -> Admission.waiting(position, waitingRoomProperties.admitPerSecond)
             }
         } catch (e: DataAccessException) {
-            if (properties.failOpen) {
+            if (waitingRoomProperties.failOpen) {
                 log.warn(e) { "대기실 Redis 장애, fail-open 으로 통과 (위험)" }
                 Admission.ADMITTED
             } else {

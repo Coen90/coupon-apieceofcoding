@@ -24,7 +24,7 @@ class WaitingRoomRedisRepository(
 
     // 반환: 0=통과, 1-based 순번=대기, null=아직 진입하지 않음.
     fun status(couponId: Long, userId: Long): Long? {
-        val position = redis.runForLong(
+        val position = redisTemplate.runForLong(
             statusScript,
             listOf(queueKey(couponId), passKey(couponId, userId)),
             userId,
