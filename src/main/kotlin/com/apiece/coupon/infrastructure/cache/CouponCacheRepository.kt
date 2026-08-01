@@ -10,9 +10,9 @@ import java.util.UUID
 
 @Repository
 class CouponCacheRepository(
-    private val redis: StringRedisTemplate,
-    private val mapper: ObjectMapper,
-    private val properties: CacheProperties,
+    private val redisTemplate: StringRedisTemplate,
+    private val objectMapper: ObjectMapper,
+    private val cacheProperties: CacheProperties,
     private val cacheMetrics: CacheMetrics,
 ) {
 
@@ -33,7 +33,7 @@ class CouponCacheRepository(
     ): CouponIssuePolicy {
         val token = UUID.randomUUID().toString()
         repeat(MAX_RETRIES) {
-            val result = redis.runForStrings(
+            val result = redisTemplate.runForStrings(
                 singleFlightScript,
                 listOf(cacheKey, lockKey),
                 token, LOCK_TTL_MS,
@@ -42,16 +42,16 @@ class CouponCacheRepository(
             when (result[0]) {
                 "HIT" -> {
                     cacheMetrics.incrementCouponCacheHit()
-                    return mapper.readValue(result[1], CouponIssuePolicy::class.java)
+                    return objectMapper.readValue(result[1], CouponIssuePolicy::class.java)
                 }
                 "LOAD" -> return try {
                     cacheMetrics.incrementCouponDbRead()
                     val response = loader()
-                    val json = mapper.writeValueAsString(response)
-                    redis.opsForValue().set(cacheKey, json, Duration.ofMillis(properties.ttlMs))
+                    val json = objectMapper.writeValueAsString(response)
+                    redisTemplate.opsForValue().set(cacheKey, json, Duration.ofMillis(cacheProperties.ttlMs))
                     response
                 } finally {
-                    redis.runForLong(
+                    redisTemplate.runForLong(
                         releaseLockScript,
                         listOf(lockKey),
                         token,
