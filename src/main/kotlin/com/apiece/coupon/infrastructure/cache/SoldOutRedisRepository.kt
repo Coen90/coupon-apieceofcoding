@@ -5,8 +5,8 @@ import org.springframework.stereotype.Repository
 
 @Repository
 class SoldOutRedisRepository(
-    private val redis: StringRedisTemplate,
+    private val redisTemplate: StringRedisTemplate,
 ) {
     fun isFlagged(couponId: Long): Boolean =
-        redis.hasKey("coupon:$couponId:sold_out")
+        redisTemplate.hasKey("coupon:$couponId:sold_out")
 }
