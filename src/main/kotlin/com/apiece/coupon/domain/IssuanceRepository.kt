@@ -9,10 +9,6 @@ interface IssuanceRepository : JpaRepository<Issuance, Long> {
 
     fun existsByUserIdAndCouponId(userId: Long, couponId: Long): Boolean
 
-    @Query(
-        "SELECT i.userId FROM Issuance i " +
-            "WHERE i.couponId = :couponId " +
-            "AND i.status <> com.apiece.coupon.domain.IssuanceStatus.CANCELED",
-    )
-    fun findNonCanceledUserIds(@Param("couponId") couponId: Long): List<Long>
+    @Query("SELECT i.userId FROM Issuance i WHERE i.couponId = :couponId")
+    fun findUserIdsByCouponId(@Param("couponId") couponId: Long): List<Long>
 }
