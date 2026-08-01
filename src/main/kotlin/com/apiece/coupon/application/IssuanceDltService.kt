@@ -30,7 +30,6 @@ class IssuanceDltService(
             ?.let { issuanceDltLogRepository.countByUserIdAndCouponId(it.userId, it.couponId).toInt() } ?: 0
         val exceptionType = header(record, KafkaHeaders.DLT_EXCEPTION_FQCN)?.take(MAX_EXCEPTION_TYPE_LENGTH)
 
-        // 확인이 필요한 이유가 있으면 그게 곧 상태다. 이유가 없으면 원인 해결 후 replay 대상.
         val decisionReason = when {
             event == null -> "INVALID_PAYLOAD"
             retryCount >= MAX_DLT_REPLAY_COUNT -> "REPLAY_LIMIT_EXCEEDED"
@@ -67,7 +66,6 @@ class IssuanceDltService(
         val logs = issuanceDltLogRepository.findAllByIdForUpdate(selectedIds).sortedBy { it.receivedAt }
         check(logs.size == selectedIds.size) { "Some DLT logs were not found" }
 
-        // 하나라도 복원할 수 없으면 아무것도 발행하지 않도록, 복원을 먼저 끝내고 발행한다.
         val events = logs.map { log ->
             check(log.status == IssuanceDltStatus.PENDING || log.status == IssuanceDltStatus.REVIEW_REQUIRED) {
                 "Only pending or review-required DLT logs can be replayed: ${log.id}"

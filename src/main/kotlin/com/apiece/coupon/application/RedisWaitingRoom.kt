@@ -12,7 +12,6 @@ import org.springframework.stereotype.Component
 
 private val log = KotlinLogging.logger {}
 
-// Redis 대기실. 모든 서버가 같은 줄(Sorted Set)/통과 명단을 봐서, 서버가 몇 대든 통과 속도가 유지된다.
 @Component
 class RedisWaitingRoom(
     private val waitingRoomRedisRepository: WaitingRoomRedisRepository,
@@ -46,7 +45,6 @@ class RedisWaitingRoom(
         try {
             waitingRoomRedisRepository.isAdmitted(couponId, userId)
         } catch (e: DataAccessException) {
-            // Redis 장애 시 기본은 fail-close (의심스러우면 막는다).
             if (waitingRoomProperties.failOpen) {
                 log.warn(e) { "대기실 Redis 장애, fail-open 으로 통과 (위험)" }
                 true

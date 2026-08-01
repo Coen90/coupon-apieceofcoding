@@ -35,7 +35,6 @@ class CouponController(
         @PathVariable couponId: Long,
         @RequestHeader("X-User-Id") userId: Long,
     ): IssuanceResponse {
-        // 입장권 없으면 발급 차단 (발급 도메인은 대기실을 모른다).
         if (!waitingRoom.isAdmitted(couponId, userId)) throw NoWaitingRoomPassException()
         trafficMetrics.incrementIssueArrival()
         val issuance = couponService.issue(couponId, userId)
