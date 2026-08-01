@@ -22,10 +22,8 @@ import java.time.LocalDateTime
     ],
 )
 class IssuanceDltLog(
-    // topic:partition:offset. 같은 DLT 메시지를 두 번 기록하지 않기 위한 키다.
     @Column(name = "message_key", nullable = false, length = 300)
     var messageKey: String,
-    // 본문을 읽을 수 없으면 아래 네 값이 없고, 그런 로그는 replay 할 수 없다.
     @Column(name = "coupon_id")
     var couponId: Long?,
     @Column(name = "user_id")
