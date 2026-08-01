@@ -50,7 +50,7 @@ class ReconcilerTest {
         stock: Long, users: Long, soldOut: Boolean,
     ) {
         val coupon = Coupon(name = "t", totalQuantity = total, issuedQuantity = issued, id = couponId)
-        every { redis.couponIdsIssuedBetween(any(), any()) } returns listOf(couponId)
+        every { couponRepository.findAll() } returns listOf(coupon)
         every { couponRepository.findById(couponId) } returns Optional.of(coupon)
         every { redis.stock(couponId) } returns stock
         every { redis.userCount(couponId) } returns users
@@ -61,7 +61,7 @@ class ReconcilerTest {
     fun `정합이면 아무 보정도 알람도 없음`() {
         setup(total = 5000, issued = 0, stock = 5000, users = 0, soldOut = false)
 
-        val report = reconciler.reconcileAll()
+        val report = reconciler.auditAll()
 
         verify(exactly = 0) { redis.addUsers(any(), any()) }
         verify(exactly = 0) { redis.deleteSoldOut(any()) }
@@ -75,7 +75,7 @@ class ReconcilerTest {
         every { issuanceRepository.findNonCanceledUserIds(couponId) } returns (1L..10L).toList()
         every { redis.userIds(couponId) } returns emptySet()
 
-        val report = reconciler.reconcileAll()
+        val report = reconciler.auditAll()
 
         verify { redis.addUsers(couponId, match { it.size == 10 }) }
         assert(report.autoFixed == 1 && report.driftAlerts == 0 && report.redisDbDrift == 0L)
@@ -85,7 +85,7 @@ class ReconcilerTest {
     fun `재고 양수인데 매진 플래그 살아있으면 DEL 자동 보정`() {
         setup(total = 5000, issued = 0, stock = 5000, users = 0, soldOut = true)
 
-        val report = reconciler.reconcileAll()
+        val report = reconciler.auditAll()
 
         verify(exactly = 1) { redis.deleteSoldOut(couponId) }
         assert(report.autoFixed == 1)
@@ -95,7 +95,7 @@ class ReconcilerTest {
     fun `재고 0인데 매진 플래그 없으면 SET 자동 보정`() {
         setup(total = 5000, issued = 5000, stock = 0, users = 5000, soldOut = false)
 
-        val report = reconciler.reconcileAll()
+        val report = reconciler.auditAll()
 
         verify(exactly = 1) { redis.setSoldOut(couponId, 86400) }
         assert(report.autoFixed == 1)
@@ -105,7 +105,7 @@ class ReconcilerTest {
     fun `DB 측 불일치는 알람만 내고 자동 보정하지 않음`() {
         setup(total = 5000, issued = 0, stock = 4990, users = 10, soldOut = true)
 
-        val report = reconciler.reconcileAll()
+        val report = reconciler.auditAll()
 
         verify(exactly = 0) { redis.addUsers(any(), any()) }
         verify(exactly = 0) { redis.deleteSoldOut(any()) }
@@ -117,7 +117,7 @@ class ReconcilerTest {
     fun `DB 측 불일치면 재고가 0이어도 매진 플래그를 설정하지 않음`() {
         setup(total = 5000, issued = 4990, stock = 0, users = 5000, soldOut = false)
 
-        val report = reconciler.reconcileAll()
+        val report = reconciler.auditAll()
 
         verify(exactly = 0) { redis.setSoldOut(any(), any()) }
         assert(report.autoFixed == 0 && report.driftAlerts == 1 && report.redisDbDrift == 10L)
@@ -128,7 +128,7 @@ class ReconcilerTest {
         setup(total = 10, issued = 11, stock = -1, users = 0, soldOut = false)
         every { issuanceRepository.findNonCanceledUserIds(couponId) } returns (1L..11L).toList()
 
-        val report = reconciler.reconcileAll()
+        val report = reconciler.auditAll()
 
         verify(exactly = 0) { redis.addUsers(any(), any()) }
         assert(report.autoFixed == 0 && report.redisDbDrift == 0L && report.stockNegative == 1)
@@ -138,7 +138,7 @@ class ReconcilerTest {
     fun `Redis 사용자 목록이 DB보다 많으면 삭제하지 않고 알람`() {
         setup(total = 5000, issued = 10, stock = 4990, users = 11, soldOut = false)
 
-        val report = reconciler.reconcileAll()
+        val report = reconciler.auditAll()
 
         verify(exactly = 0) { redis.addUsers(any(), any()) }
         assert(report.autoFixed == 0 && report.driftAlerts == 1)
@@ -150,7 +150,7 @@ class ReconcilerTest {
         every { issuanceRepository.findNonCanceledUserIds(couponId) } returns (1L..10L).toList()
         every { redis.userIds(couponId) } returns (1L..8L).map { it.toString() }.toSet()
 
-        val report = reconciler.reconcileAll()
+        val report = reconciler.auditAll()
 
         verify(exactly = 0) { redis.addUsers(any(), any()) }
         assert(report.autoFixed == 0 && report.driftAlerts == 1)
@@ -160,32 +160,22 @@ class ReconcilerTest {
     fun `발급 window 밖 쿠폰은 검사하지 않음`() {
         every { redis.couponIdsIssuedBetween(any(), any()) } returns emptyList()
 
-        val report = reconciler.reconcileAll()
+        reconciler.scheduledRecent()
 
         verify(exactly = 0) { couponRepository.findById(any()) }
-        assert(report.checkedCoupons == 0 && report.driftAlerts == 0 && report.redisDbDrift == 0L)
     }
 
     @Test
-    fun `대사 상한은 현재 시각에서 grace period 를 뺀 값`() {
-        val toSlot = slot<Long>()
-        every { redis.couponIdsIssuedBetween(any(), capture(toSlot)) } returns emptyList()
-
-        val before = System.currentTimeMillis()
-        reconciler.reconcileAll()
-        val after = System.currentTimeMillis()
-
-        assert(toSlot.captured in (before - gracePeriodMs)..(after - gracePeriodMs))
-    }
-
-    @Test
-    fun `최근 대사는 매분 최근 두 구간을 겹쳐 검사`() {
+    fun `최근 대사는 유예 시간을 두고 최근 두 구간을 겹쳐 검사`() {
         val fromSlot = slot<Long>()
         val toSlot = slot<Long>()
         every { redis.couponIdsIssuedBetween(capture(fromSlot), capture(toSlot)) } returns emptyList()
 
+        val before = System.currentTimeMillis()
         reconciler.scheduledRecent()
+        val after = System.currentTimeMillis()
 
+        assert(toSlot.captured in (before - gracePeriodMs)..(after - gracePeriodMs))
         assert(toSlot.captured - fromSlot.captured == reconcileProperties.intervalMs * 2)
     }
 

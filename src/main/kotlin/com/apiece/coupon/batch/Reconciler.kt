@@ -30,11 +30,6 @@ class Reconciler(
         log.info { "일일 전수 audit 완료 checked=${report.checkedCoupons} alerts=${report.driftAlerts}" }
     }
 
-    fun reconcileAll(): ReconcileReport {
-        val cutoffMs = System.currentTimeMillis() - reconcileProperties.gracePeriodMs
-        return reconcileWindow(0, cutoffMs)
-    }
-
     fun auditAll(): ReconcileReport = reconcileCoupons(couponRepository.findAll().mapNotNull { it.id })
 
     private fun reconcileWindow(
