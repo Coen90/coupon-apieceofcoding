@@ -10,8 +10,8 @@ private val log = KotlinLogging.logger {}
 
 @Component
 class InMemoryIssuanceWorker(
-    private val queue: InMemoryIssuanceQueue,
-    private val writer: IssuanceWriter,
+    private val inMemoryIssuanceQueue: InMemoryIssuanceQueue,
+    private val issuanceWriter: IssuanceWriter,
 ) {
     private lateinit var workerThread: Thread
 
@@ -20,13 +20,13 @@ class InMemoryIssuanceWorker(
         workerThread = thread(name = "issuance-worker", isDaemon = true) {
             while (!Thread.currentThread().isInterrupted) {
                 val event = try {
-                    queue.poll() ?: continue
+                    inMemoryIssuanceQueue.poll() ?: continue
                 } catch (e: InterruptedException) {
                     Thread.currentThread().interrupt()
                     break
                 }
                 try {
-                    writer.write(event)
+                    issuanceWriter.write(event)
                 } catch (e: Exception) {
                     log.error(e) { "Worker write 실패: couponId=${event.couponId}, userId=${event.userId}" }
                 }
