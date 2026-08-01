@@ -5,7 +5,7 @@ import org.springframework.stereotype.Component
 
 @Component
 class IssuanceWorker(
-    private val writer: IssuanceWriter,
+    private val issuanceWriter: IssuanceWriter,
 ) {
     @KafkaListener(
         topics = [IssuanceTopics.REQUESTED],
@@ -13,6 +13,6 @@ class IssuanceWorker(
         concurrency = "3",
     )
     fun consume(event: IssuanceRequested) {
-        writer.write(event)
+        issuanceWriter.write(event)
     }
 }
