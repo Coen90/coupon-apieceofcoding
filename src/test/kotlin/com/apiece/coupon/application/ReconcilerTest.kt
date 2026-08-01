@@ -97,12 +97,24 @@ class ReconcilerTest {
 
     @Test
     fun `DB 측 불일치는 알람만 내고 자동 보정하지 않음`() {
-        setup(total = 5000, issued = 0, stock = 4990, users = 10, soldOut = false)
+        setup(total = 5000, issued = 0, stock = 4990, users = 10, soldOut = true)
 
         val report = reconciler.reconcileAll()
 
         verify(exactly = 0) { redis.addUsers(any(), any()) }
+        verify(exactly = 0) { redis.deleteSoldOut(any()) }
+        verify(exactly = 0) { redis.setSoldOut(any(), any()) }
         assert(report.driftAlerts == 1 && report.redisDbDrift == 10L)
+    }
+
+    @Test
+    fun `DB 측 불일치면 재고가 0이어도 매진 플래그를 설정하지 않음`() {
+        setup(total = 5000, issued = 4990, stock = 0, users = 5000, soldOut = false)
+
+        val report = reconciler.reconcileAll()
+
+        verify(exactly = 0) { redis.setSoldOut(any(), any()) }
+        assert(report.autoFixed == 0 && report.driftAlerts == 1 && report.redisDbDrift == 10L)
     }
 
     @Test
