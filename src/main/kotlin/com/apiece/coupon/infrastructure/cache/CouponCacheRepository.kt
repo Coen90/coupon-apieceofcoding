@@ -16,9 +16,9 @@ private val log = KotlinLogging.logger {}
 
 @Repository
 class CouponCacheRepository(
-    private val redis: StringRedisTemplate,
-    private val mapper: ObjectMapper,
-    private val properties: CacheProperties,
+    private val redisTemplate: StringRedisTemplate,
+    private val objectMapper: ObjectMapper,
+    private val cacheProperties: CacheProperties,
     private val cacheMetrics: CacheMetrics,
 ) {
 
@@ -45,16 +45,16 @@ class CouponCacheRepository(
         val token = UUID.randomUUID().toString()
         repeat(MAX_RETRIES) {
             val now = Instant.now().toEpochMilli()
-            val result = redis.runForStrings(
+            val result = redisTemplate.runForStrings(
                 lookupScript,
                 listOf(cacheKey, lockKey),
-                now, properties.freshMs, token, LOCK_TTL_MS,
+                now, cacheProperties.freshMs, token, LOCK_TTL_MS,
             )
 
             when (result[0]) {
                 "HIT" -> {
                     cacheMetrics.incrementCouponCacheHit()
-                    return mapper.readValue(result[1], CouponIssuePolicy::class.java)
+                    return objectMapper.readValue(result[1], CouponIssuePolicy::class.java)
                 }
                 "STALE_REFRESH" -> {
                     cacheMetrics.incrementCouponCacheHit()
@@ -65,7 +65,7 @@ class CouponCacheRepository(
                             log.warn { "백그라운드 SWR 갱신 실패 (key=$cacheKey): ${e.message}" }
                         }
                     }
-                    return mapper.readValue(result[1], CouponIssuePolicy::class.java)
+                    return objectMapper.readValue(result[1], CouponIssuePolicy::class.java)
                 }
                 "LOAD" -> return fillCache(cacheKey, lockKey, token, loader)
                 "WAIT" -> Thread.sleep(WAIT_BACKOFF_MS)
@@ -83,17 +83,17 @@ class CouponCacheRepository(
         try {
             cacheMetrics.incrementCouponDbRead()
             val response = loader()
-            redis.opsForHash<String, String>().putAll(
+            redisTemplate.opsForHash<String, String>().putAll(
                 cacheKey,
                 mapOf(
-                    "value" to mapper.writeValueAsString(response),
+                    "value" to objectMapper.writeValueAsString(response),
                     "fetchedAtMs" to Instant.now().toEpochMilli().toString(),
                 ),
             )
-            redis.expire(cacheKey, Duration.ofMillis(properties.ttlMs))
+            redisTemplate.expire(cacheKey, Duration.ofMillis(cacheProperties.ttlMs))
             return response
         } finally {
-            redis.runForLong(
+            redisTemplate.runForLong(
                 releaseLockScript,
                 listOf(lockKey),
                 token,
