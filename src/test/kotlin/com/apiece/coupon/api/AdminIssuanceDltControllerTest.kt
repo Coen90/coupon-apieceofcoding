@@ -1,5 +1,6 @@
 package com.apiece.coupon.api
 
+import com.apiece.coupon.application.IssuanceDltReplayService
 import com.apiece.coupon.application.IssuanceDltService
 import io.mockk.every
 import io.mockk.mockk
@@ -13,12 +14,15 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders
 
 class AdminIssuanceDltControllerTest {
 
-    private val service = mockk<IssuanceDltService>()
-    private val mockMvc = MockMvcBuilders.standaloneSetup(AdminIssuanceDltController(service)).build()
+    private val issuanceDltService = mockk<IssuanceDltService>()
+    private val issuanceDltReplayService = mockk<IssuanceDltReplayService>()
+    private val mockMvc = MockMvcBuilders
+        .standaloneSetup(AdminIssuanceDltController(issuanceDltService, issuanceDltReplayService))
+        .build()
 
     @Test
     fun `선택한 DLT 로그 ID를 replay한다`() {
-        every { service.replay(listOf(7L, 8L)) } returns 2
+        every { issuanceDltReplayService.replay(listOf(7L, 8L)) } returns 2
 
         mockMvc.perform(
             post("/admin/issuance/dlt/replay")
@@ -28,6 +32,6 @@ class AdminIssuanceDltControllerTest {
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.replayedCount").value(2))
 
-        verify(exactly = 1) { service.replay(listOf(7L, 8L)) }
+        verify(exactly = 1) { issuanceDltReplayService.replay(listOf(7L, 8L)) }
     }
 }
