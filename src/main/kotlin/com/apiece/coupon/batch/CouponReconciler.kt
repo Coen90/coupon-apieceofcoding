@@ -30,7 +30,7 @@ class CouponReconciler(
         var listDriftAlert = false
         if (snapshot.listResidual > 0) {
             val redisUserIds = reconcileRedisRepository.userIds(couponId).mapNotNull { it.toLongOrNull() }.toSet()
-            val missingUserIds = issuanceRepository.findNonCanceledUserIds(couponId) - redisUserIds
+            val missingUserIds = issuanceRepository.findUserIdsByCouponId(couponId) - redisUserIds
             if (missingUserIds.size.toLong() == snapshot.listResidual) {
                 reconcileRedisRepository.addUsers(couponId, missingUserIds)
                 autoFixed++
