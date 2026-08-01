@@ -3,7 +3,6 @@ package com.apiece.coupon.application
 import org.springframework.stereotype.Component
 import java.util.concurrent.atomic.AtomicLong
 
-// 트래픽 지표: 대기실 진입(enters) -> 통과(admitted = 통과 속도) -> 발급 도달(issueArrivals).
 @Component
 class TrafficMetrics {
     private val waitingRoomEnters = AtomicLong()

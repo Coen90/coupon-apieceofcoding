@@ -7,7 +7,6 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.data.redis.connection.RedisConnectionFactory
 
-// 배출 타이머를 한 대만 돌리는 분산 락. 저장소는 같은 Redis 재사용.
 @Configuration
 @EnableSchedulerLock(defaultLockAtMostFor = "PT2S")
 class ShedLockConfig {
