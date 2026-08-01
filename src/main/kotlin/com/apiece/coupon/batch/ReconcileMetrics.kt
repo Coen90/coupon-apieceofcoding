@@ -1,4 +1,4 @@
-package com.apiece.coupon.application
+package com.apiece.coupon.batch
 
 import org.springframework.stereotype.Component
 import java.util.concurrent.atomic.AtomicLong

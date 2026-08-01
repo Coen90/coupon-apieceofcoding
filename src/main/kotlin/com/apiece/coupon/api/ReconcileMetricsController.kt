@@ -1,7 +1,7 @@
 package com.apiece.coupon.api
 
 import com.apiece.coupon.api.dto.ReconcileMetricsResponse
-import com.apiece.coupon.application.ReconcileMetrics
+import com.apiece.coupon.batch.ReconcileMetrics
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestMapping

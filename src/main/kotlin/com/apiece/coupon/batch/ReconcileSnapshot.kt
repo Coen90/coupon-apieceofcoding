@@ -1,4 +1,4 @@
-package com.apiece.coupon.application
+package com.apiece.coupon.batch
 
 class ReconcileSnapshot(
     val total: Int,
