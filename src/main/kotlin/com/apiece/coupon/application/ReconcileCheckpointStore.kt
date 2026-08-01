@@ -10,8 +10,8 @@ import java.util.UUID
 
 @Component
 class ReconcileCheckpointStore(
-    private val repository: ReconcileCheckpointRepository,
-    private val properties: ReconcileProperties,
+    private val reconcileCheckpointRepository: ReconcileCheckpointRepository,
+    private val reconcileProperties: ReconcileProperties,
 ) {
     private val jobName = "coupon-reconcile"
     private val owner = UUID.randomUUID().toString()
@@ -20,33 +20,33 @@ class ReconcileCheckpointStore(
     fun acquire(): Boolean {
         ensureRow()
         val now = System.currentTimeMillis()
-        return repository.acquireLease(jobName, owner, now, now + properties.leaseMs) == 1
+        return reconcileCheckpointRepository.acquireLease(jobName, owner, now, now + reconcileProperties.leaseMs) == 1
     }
 
     @Transactional
     fun renew(): Boolean {
         val now = System.currentTimeMillis()
-        return repository.renewLease(jobName, owner, now, now + properties.leaseMs) == 1
+        return reconcileCheckpointRepository.renewLease(jobName, owner, now, now + reconcileProperties.leaseMs) == 1
     }
 
     @Transactional(readOnly = true)
     fun lastSuccessCutoffMs(): Long =
-        repository.findById(jobName).orElse(ReconcileCheckpoint(jobName)).lastSuccessCutoffMs
+        reconcileCheckpointRepository.findById(jobName).orElse(ReconcileCheckpoint(jobName)).lastSuccessCutoffMs
 
     @Transactional
     fun markSuccess(cutoffMs: Long) {
-        check(repository.saveSuccess(jobName, owner, cutoffMs) == 1) { "reconcile lease lost" }
+        check(reconcileCheckpointRepository.saveSuccess(jobName, owner, cutoffMs) == 1) { "reconcile lease lost" }
     }
 
     @Transactional
     fun release() {
-        repository.releaseLease(jobName, owner)
+        reconcileCheckpointRepository.releaseLease(jobName, owner)
     }
 
     private fun ensureRow() {
-        if (repository.existsById(jobName)) return
+        if (reconcileCheckpointRepository.existsById(jobName)) return
         try {
-            repository.save(ReconcileCheckpoint(jobName))
+            reconcileCheckpointRepository.save(ReconcileCheckpoint(jobName))
         } catch (_: DataIntegrityViolationException) {
         }
     }

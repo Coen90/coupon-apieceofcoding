@@ -19,23 +19,23 @@ class Reconciler(
     private val reconcileRedisRepository: CouponReconcileRedisRepository,
     private val soldOutProperties: SoldOutProperties,
     private val reconcileProperties: ReconcileProperties,
-    private val metrics: ReconcileMetrics,
-    private val checkpointStore: ReconcileCheckpointStore,
+    private val reconcileMetrics: ReconcileMetrics,
+    private val reconcileCheckpointStore: ReconcileCheckpointStore,
 ) {
     @Scheduled(fixedRateString = "\${coupon.reconcile.interval-ms}")
     fun scheduledRecent() {
-        if (!checkpointStore.acquire()) {
+        if (!reconcileCheckpointStore.acquire()) {
             log.info { "다른 인스턴스가 reconcile lease를 가지고 있어 이번 호출은 건너뜀" }
             return
         }
         val cutoffMs = System.currentTimeMillis() - reconcileProperties.gracePeriodMs
         try {
-            val fromMs = checkpointStore.lastSuccessCutoffMs().takeIf { it > 0 }
+            val fromMs = reconcileCheckpointStore.lastSuccessCutoffMs().takeIf { it > 0 }
                 ?: (cutoffMs - reconcileProperties.intervalMs)
             val report = reconcileWindow(fromMs, cutoffMs, renewLease = true)
-            if (report.failedCoupons == 0) checkpointStore.markSuccess(cutoffMs)
+            if (report.failedCoupons == 0) reconcileCheckpointStore.markSuccess(cutoffMs)
         } finally {
-            checkpointStore.release()
+            reconcileCheckpointStore.release()
         }
     }
 
@@ -58,12 +58,12 @@ class Reconciler(
         tryAuditAll() ?: ReconcileReport(0, 0, 0, 0L, 0)
 
     private fun tryAuditAll(): ReconcileReport? {
-        if (!checkpointStore.acquire()) return null
+        if (!reconcileCheckpointStore.acquire()) return null
         return try {
             val couponIds = couponRepository.findAll().mapNotNull { it.id }
             reconcileCoupons(couponIds, renewLease = true)
         } finally {
-            checkpointStore.release()
+            reconcileCheckpointStore.release()
         }
     }
 
@@ -80,7 +80,7 @@ class Reconciler(
         var nextRenewAt = System.currentTimeMillis() + reconcileProperties.leaseMs / 3
         val outcomes = couponIds.map { couponId ->
             if (renewLease && System.currentTimeMillis() >= nextRenewAt) {
-                check(checkpointStore.renew()) { "reconcile lease lost" }
+                check(reconcileCheckpointStore.renew()) { "reconcile lease lost" }
                 nextRenewAt = System.currentTimeMillis() + reconcileProperties.leaseMs / 3
             }
             try {
@@ -98,9 +98,9 @@ class Reconciler(
             stockNegative = outcomes.count { it.stockNegative },
             failedCoupons = outcomes.count { it.failed },
         )
-        metrics.setRedisDbDrift(report.redisDbDrift)
-        metrics.setStockNegative(report.stockNegative.toLong())
-        metrics.addAutoFix(report.autoFixed)
+        reconcileMetrics.setRedisDbDrift(report.redisDbDrift)
+        reconcileMetrics.setStockNegative(report.stockNegative.toLong())
+        reconcileMetrics.addAutoFix(report.autoFixed)
         return report
     }
 
