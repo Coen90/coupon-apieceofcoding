@@ -110,24 +110,33 @@ class Reconciler(
             log.warn { "Redis stock 키가 없어 대상을 확인할 수 없음 coupon=$couponId (전수 audit 대상)" }
             return CouponOutcome(confirmedDbDrift = 1L)
         }
-        var autoFixed = 0
         val stockNegative = s.stock < 0
         if (stockNegative) log.warn { "재고 음수 감지 coupon=$couponId stock=${s.stock}" }
 
-        if (s.dbResidual == 0L) {
-            if (s.stock > 0 && s.soldOut) {
-                reconcileRedisRepository.deleteSoldOut(couponId)
-                autoFixed++
-                log.info { "auto-fix: 매진 플래그 해제 coupon=$couponId" }
-            } else if (s.stock == 0L && !s.soldOut) {
-                reconcileRedisRepository.setSoldOut(couponId, soldOutProperties.ttlSeconds)
-                autoFixed++
-                log.info { "auto-fix: 매진 플래그 설정 coupon=$couponId" }
-            }
+        val dbResidual = s.dbResidual
+        if (dbResidual != 0L) {
+            log.warn { "DB 측 불일치 감지 coupon=$couponId residual=$dbResidual (자동 보정 불가, 사람 확인)" }
+        }
+        if (stockNegative || dbResidual != 0L) {
+            return CouponOutcome(
+                confirmedDbDrift = abs(dbResidual),
+                stockNegative = stockNegative,
+            )
+        }
+
+        var autoFixed = 0
+        if (s.stock > 0 && s.soldOut) {
+            reconcileRedisRepository.deleteSoldOut(couponId)
+            autoFixed++
+            log.info { "auto-fix: 매진 플래그 해제 coupon=$couponId" }
+        } else if (s.stock == 0L && !s.soldOut) {
+            reconcileRedisRepository.setSoldOut(couponId, soldOutProperties.ttlSeconds)
+            autoFixed++
+            log.info { "auto-fix: 매진 플래그 설정 coupon=$couponId" }
         }
 
         var listDriftAlert = false
-        if (s.listResidual > 0 && s.dbResidual == 0L) {
+        if (s.listResidual > 0) {
             val missing = issuanceRepository.findNonCanceledUserIds(couponId) -
                 reconcileRedisRepository.userIds(couponId).mapNotNull { it.toLongOrNull() }.toSet()
             if (missing.size.toLong() == s.listResidual) {
@@ -143,13 +152,10 @@ class Reconciler(
             log.warn { "Redis 사용자 목록 초과 감지 coupon=$couponId residual=${s.listResidual}" }
         }
 
-        var confirmedDbDrift = 0L
-        if (s.dbResidual != 0L) {
-            confirmedDbDrift = abs(s.dbResidual)
-            log.warn { "DB 측 불일치 감지 coupon=$couponId residual=${s.dbResidual} (자동 보정 불가, 사람 확인)" }
-        }
-
-        return CouponOutcome(autoFixed, confirmedDbDrift, stockNegative, listDriftAlert)
+        return CouponOutcome(
+            autoFixed = autoFixed,
+            listDriftAlert = listDriftAlert,
+        )
     }
 
     private fun readSnapshot(couponId: Long): ReconcileSnapshot? {
