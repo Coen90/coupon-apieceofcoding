@@ -1,26 +1,22 @@
-package com.apiece.coupon.application
+package com.apiece.coupon.batch
 
 import com.apiece.coupon.domain.CouponRepository
-import com.apiece.coupon.domain.IssuanceRepository
 import com.apiece.coupon.infrastructure.cache.CouponReconcileRedisRepository
 import com.apiece.coupon.infrastructure.cache.ReconcileProperties
-import com.apiece.coupon.infrastructure.cache.SoldOutProperties
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
-import kotlin.math.abs
 
 private val log = KotlinLogging.logger {}
 
 @Component
 class Reconciler(
     private val couponRepository: CouponRepository,
-    private val issuanceRepository: IssuanceRepository,
     private val reconcileRedisRepository: CouponReconcileRedisRepository,
-    private val soldOutProperties: SoldOutProperties,
     private val reconcileProperties: ReconcileProperties,
     private val reconcileMetrics: ReconcileMetrics,
     private val reconcileCheckpointStore: ReconcileCheckpointStore,
+    private val couponReconciler: CouponReconciler,
 ) {
     @Scheduled(fixedRateString = "\${coupon.reconcile.interval-ms}")
     fun scheduledRecent() {
@@ -54,8 +50,7 @@ class Reconciler(
         return reconcileWindow(0, cutoffMs)
     }
 
-    fun auditAll(): ReconcileReport =
-        tryAuditAll() ?: ReconcileReport(0, 0, 0, 0L, 0)
+    fun auditAll(): ReconcileReport = tryAuditAll() ?: ReconcileReport()
 
     private fun tryAuditAll(): ReconcileReport? {
         if (!reconcileCheckpointStore.acquire()) return null
@@ -84,10 +79,10 @@ class Reconciler(
                 nextRenewAt = System.currentTimeMillis() + reconcileProperties.leaseMs / 3
             }
             try {
-                reconcileCoupon(couponId)
+                couponReconciler.reconcile(couponId)
             } catch (e: Exception) {
                 log.warn(e) { "reconcile 중 예외 coupon=$couponId, 다음 회차에 재시도" }
-                CouponOutcome(failed = true)
+                CouponReconcileOutcome(failed = true)
             }
         }
         val report = ReconcileReport(
@@ -103,78 +98,4 @@ class Reconciler(
         reconcileMetrics.addAutoFix(report.autoFixed)
         return report
     }
-
-    private fun reconcileCoupon(couponId: Long): CouponOutcome {
-        val s = readSnapshot(couponId)
-        if (s == null) {
-            log.warn { "Redis stock 키가 없어 대상을 확인할 수 없음 coupon=$couponId (전수 audit 대상)" }
-            return CouponOutcome(confirmedDbDrift = 1L)
-        }
-        val stockNegative = s.stock < 0
-        if (stockNegative) log.warn { "재고 음수 감지 coupon=$couponId stock=${s.stock}" }
-
-        val dbResidual = s.dbResidual
-        if (dbResidual != 0L) {
-            log.warn { "DB 측 불일치 감지 coupon=$couponId residual=$dbResidual (자동 보정 불가, 사람 확인)" }
-        }
-        if (stockNegative || dbResidual != 0L) {
-            return CouponOutcome(
-                confirmedDbDrift = abs(dbResidual),
-                stockNegative = stockNegative,
-            )
-        }
-
-        var autoFixed = 0
-        if (s.stock > 0 && s.soldOut) {
-            reconcileRedisRepository.deleteSoldOut(couponId)
-            autoFixed++
-            log.info { "auto-fix: 매진 플래그 해제 coupon=$couponId" }
-        } else if (s.stock == 0L && !s.soldOut) {
-            reconcileRedisRepository.setSoldOut(couponId, soldOutProperties.ttlSeconds)
-            autoFixed++
-            log.info { "auto-fix: 매진 플래그 설정 coupon=$couponId" }
-        }
-
-        var listDriftAlert = false
-        if (s.listResidual > 0) {
-            val missing = issuanceRepository.findNonCanceledUserIds(couponId) -
-                reconcileRedisRepository.userIds(couponId).mapNotNull { it.toLongOrNull() }.toSet()
-            if (missing.size.toLong() == s.listResidual) {
-                reconcileRedisRepository.addUsers(couponId, missing)
-                autoFixed++
-                log.info { "auto-fix: 사용자 목록 SADD ${missing.size}건 coupon=$couponId" }
-            } else {
-                listDriftAlert = true
-                log.warn { "Redis 사용자 목록을 안전하게 복구할 수 없음 coupon=$couponId" }
-            }
-        } else if (s.listResidual < 0) {
-            listDriftAlert = true
-            log.warn { "Redis 사용자 목록 초과 감지 coupon=$couponId residual=${s.listResidual}" }
-        }
-
-        return CouponOutcome(
-            autoFixed = autoFixed,
-            listDriftAlert = listDriftAlert,
-        )
-    }
-
-    private fun readSnapshot(couponId: Long): ReconcileSnapshot? {
-        val coupon = couponRepository.findById(couponId).orElse(null) ?: return null
-        val stock = reconcileRedisRepository.stock(couponId) ?: return null
-        return ReconcileSnapshot(
-            total = coupon.totalQuantity,
-            issued = coupon.issuedQuantity,
-            stock = stock,
-            userCount = reconcileRedisRepository.userCount(couponId),
-            soldOut = reconcileRedisRepository.soldOutExists(couponId),
-        )
-    }
-
-    private class CouponOutcome(
-        val autoFixed: Int = 0,
-        val confirmedDbDrift: Long = 0L,
-        val stockNegative: Boolean = false,
-        val listDriftAlert: Boolean = false,
-        val failed: Boolean = false,
-    )
 }

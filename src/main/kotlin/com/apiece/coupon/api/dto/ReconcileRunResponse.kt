@@ -1,6 +1,6 @@
 package com.apiece.coupon.api.dto
 
-import com.apiece.coupon.application.ReconcileReport
+import com.apiece.coupon.batch.ReconcileReport
 
 class ReconcileRunResponse(
     val checkedCoupons: Int,
