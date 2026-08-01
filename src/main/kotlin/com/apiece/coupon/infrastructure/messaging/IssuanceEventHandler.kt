@@ -6,11 +6,11 @@ import org.springframework.stereotype.Component
 
 @Component
 class IssuanceEventHandler(
-    private val writer: IssuanceWriter,
+    private val issuanceWriter: IssuanceWriter,
 ) {
     @Async(ISSUANCE_TASK_EXECUTOR)
     @EventListener
     fun handle(event: IssuanceRequested) {
-        writer.write(event)
+        issuanceWriter.write(event)
     }
 }
