@@ -19,7 +19,6 @@ class ReconcilerTest {
     private val issuanceRepository = mockk<IssuanceRepository>(relaxed = true)
     private val redis = mockk<CouponReconcileRedisRepository>(relaxUnitFun = true)
     private val metrics = mockk<ReconcileMetrics>(relaxUnitFun = true)
-    private val checkpointStore = mockk<ReconcileCheckpointStore>(relaxUnitFun = true)
     private val gracePeriodMs = 10000L
     private val reconcileProperties = ReconcileProperties(intervalMs = 60000, gracePeriodMs = gracePeriodMs)
     private val couponReconciler = CouponReconciler(
@@ -33,7 +32,6 @@ class ReconcilerTest {
         redis,
         reconcileProperties,
         metrics,
-        checkpointStore,
         couponReconciler,
     )
 
@@ -181,10 +179,19 @@ class ReconcilerTest {
     }
 
     @Test
+    fun `최근 대사는 매분 최근 두 구간을 겹쳐 검사`() {
+        val fromSlot = slot<Long>()
+        val toSlot = slot<Long>()
+        every { redis.couponIdsIssuedBetween(capture(fromSlot), capture(toSlot)) } returns emptyList()
+
+        reconciler.scheduledRecent()
+
+        assert(toSlot.captured - fromSlot.captured == reconcileProperties.intervalMs * 2)
+    }
+
+    @Test
     fun `전수 audit 은 Redis 색인 대신 DB 의 모든 쿠폰을 검사`() {
         val coupon = Coupon(name = "t", totalQuantity = 10, issuedQuantity = 0, id = couponId)
-        every { checkpointStore.acquire() } returns true
-        every { checkpointStore.renew() } returns true
         every { couponRepository.findAll() } returns listOf(coupon)
         every { couponRepository.findById(couponId) } returns Optional.of(coupon)
         every { redis.stock(couponId) } returns 10
@@ -194,7 +201,6 @@ class ReconcilerTest {
         val report = reconciler.auditAll()
 
         verify { couponRepository.findAll() }
-        verify { checkpointStore.release() }
         assert(report.checkedCoupons == 1 && report.failedCoupons == 0)
     }
 }

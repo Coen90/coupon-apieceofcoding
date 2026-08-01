@@ -8,12 +8,10 @@ mysql_exec() {
   docker compose exec -T -e MYSQL_PWD=coupon mysql mysql -ucoupon -BN coupon -e "$1"
 }
 
-for table in issuance_dlt_log reconcile_checkpoint; do
-  if [[ "$(mysql_exec "SELECT COUNT(*) FROM information_schema.tables
-                        WHERE table_schema='coupon' AND table_name='$table'")" == "1" ]]; then
-    mysql_exec "TRUNCATE TABLE $table"
-  fi
-done
+if [[ "$(mysql_exec "SELECT COUNT(*) FROM information_schema.tables
+                      WHERE table_schema='coupon' AND table_name='issuance_dlt_log'")" == "1" ]]; then
+  mysql_exec "TRUNCATE TABLE issuance_dlt_log"
+fi
 
 docker compose exec -T -e MYSQL_PWD=coupon mysql mysql -ucoupon -t coupon -e "
   SET FOREIGN_KEY_CHECKS=0; TRUNCATE issuance; TRUNCATE coupon; SET FOREIGN_KEY_CHECKS=1;
