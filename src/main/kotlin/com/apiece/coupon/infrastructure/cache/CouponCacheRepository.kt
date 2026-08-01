@@ -9,9 +9,9 @@ import java.time.Duration
 
 @Repository
 class CouponCacheRepository(
-    private val redis: StringRedisTemplate,
-    private val mapper: ObjectMapper,
-    private val properties: CacheProperties,
+    private val redisTemplate: StringRedisTemplate,
+    private val objectMapper: ObjectMapper,
+    private val cacheProperties: CacheProperties,
     private val cacheMetrics: CacheMetrics,
 ) {
 
@@ -25,13 +25,13 @@ class CouponCacheRepository(
         key: String,
         loader: () -> CouponIssuePolicy,
     ): CouponIssuePolicy {
-        redis.opsForValue().get(key)?.let { cached ->
+        redisTemplate.opsForValue().get(key)?.let { cached ->
             cacheMetrics.incrementCouponCacheHit()
-            return mapper.readValue(cached, CouponIssuePolicy::class.java)
+            return objectMapper.readValue(cached, CouponIssuePolicy::class.java)
         }
         cacheMetrics.incrementCouponDbRead()
         val response = loader()
-        redis.opsForValue().set(key, mapper.writeValueAsString(response), Duration.ofMillis(properties.ttlMs))
+        redisTemplate.opsForValue().set(key, objectMapper.writeValueAsString(response), Duration.ofMillis(cacheProperties.ttlMs))
         return response
     }
 }
