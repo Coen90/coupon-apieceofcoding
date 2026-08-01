@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
 interface IssuanceDltLogRepository : JpaRepository<IssuanceDltLog, Long> {
-    fun findByMessageKey(messageKey: String): IssuanceDltLog?
+    fun existsByMessageKey(messageKey: String): Boolean
     fun countByUserIdAndCouponId(userId: Long, couponId: Long): Long
     fun findTop100ByOrderByReceivedAtDesc(): List<IssuanceDltLog>
 

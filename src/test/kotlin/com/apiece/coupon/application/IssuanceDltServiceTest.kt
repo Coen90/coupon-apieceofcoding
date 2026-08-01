@@ -19,30 +19,30 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 class IssuanceDltServiceTest {
-    private val repository = mockk<IssuanceDltLogRepository>(relaxed = true)
-    private val producer = mockk<IssuanceRequestProducer>(relaxed = true)
-    private val service = IssuanceDltService(repository, producer)
+    private val issuanceDltLogRepository = mockk<IssuanceDltLogRepository>(relaxed = true)
+    private val issuanceRequestProducer = mockk<IssuanceRequestProducer>(relaxed = true)
+    private val service = IssuanceDltService(issuanceDltLogRepository, issuanceRequestProducer)
 
     init {
-        every { repository.findByMessageKey(any()) } returns null
-        every { repository.save(any()) } answers { firstArg() }
+        every { issuanceDltLogRepository.existsByMessageKey(any()) } returns false
+        every { issuanceDltLogRepository.save(any()) } answers { firstArg() }
     }
 
     @Test
     fun `일시 장애는 운영자 replay 대기 상태로 기록`() {
-        every { repository.countByUserIdAndCouponId(42L, 1L) } returns 0
+        every { issuanceDltLogRepository.countByUserIdAndCouponId(42L, 1L) } returns 0
         val saved = slot<IssuanceDltLog>()
 
         service.record(record())
 
-        verify { repository.save(capture(saved)) }
+        verify { issuanceDltLogRepository.save(capture(saved)) }
         assertEquals(IssuanceDltStatus.PENDING, saved.captured.status)
         assertEquals(0, saved.captured.retryCount)
     }
 
     @Test
     fun `데이터 오류는 즉시 확인 필요 상태`() {
-        every { repository.countByUserIdAndCouponId(42L, 1L) } returns 0
+        every { issuanceDltLogRepository.countByUserIdAndCouponId(42L, 1L) } returns 0
         val record = record().apply {
             headers().add(RecordHeader(
                 KafkaHeaders.DLT_EXCEPTION_FQCN,
@@ -53,7 +53,7 @@ class IssuanceDltServiceTest {
 
         service.record(record)
 
-        verify { repository.save(capture(saved)) }
+        verify { issuanceDltLogRepository.save(capture(saved)) }
         assertEquals(IssuanceDltStatus.REVIEW_REQUIRED, saved.captured.status)
         assertEquals("NON_RETRYABLE_ERROR", saved.captured.decisionReason)
     }
@@ -65,7 +65,7 @@ class IssuanceDltServiceTest {
 
         service.record(malformed)
 
-        verify { repository.save(capture(saved)) }
+        verify { issuanceDltLogRepository.save(capture(saved)) }
         assertEquals(IssuanceDltStatus.REVIEW_REQUIRED, saved.captured.status)
         assertEquals("INVALID_PAYLOAD", saved.captured.decisionReason)
         assertEquals(null, saved.captured.couponId)
@@ -85,19 +85,19 @@ class IssuanceDltServiceTest {
 
         service.record(invalid)
 
-        verify { repository.save(capture(saved)) }
+        verify { issuanceDltLogRepository.save(capture(saved)) }
         assertEquals(IssuanceDltStatus.REVIEW_REQUIRED, saved.captured.status)
         assertEquals("INVALID_PAYLOAD", saved.captured.decisionReason)
     }
 
     @Test
     fun `replay 후 세 번 다시 실패하면 확인 필요 상태`() {
-        every { repository.countByUserIdAndCouponId(42L, 1L) } returns 3
+        every { issuanceDltLogRepository.countByUserIdAndCouponId(42L, 1L) } returns 3
         val saved = slot<IssuanceDltLog>()
 
         service.record(record())
 
-        verify { repository.save(capture(saved)) }
+        verify { issuanceDltLogRepository.save(capture(saved)) }
         assertEquals(IssuanceDltStatus.REVIEW_REQUIRED, saved.captured.status)
         assertEquals("REPLAY_LIMIT_EXCEEDED", saved.captured.decisionReason)
     }
@@ -106,15 +106,15 @@ class IssuanceDltServiceTest {
     fun `선택한 대기와 확인 필요 로그를 원본 토픽에 재발행`() {
         val pending = log(1L, IssuanceDltStatus.PENDING)
         val reviewRequired = log(2L, IssuanceDltStatus.REVIEW_REQUIRED)
-        every { repository.findAllByIdForUpdate(listOf(1L, 2L)) } returns listOf(pending, reviewRequired)
-        every { producer.publishAndWait(any()) } just runs
+        every { issuanceDltLogRepository.findAllByIdForUpdate(listOf(1L, 2L)) } returns listOf(pending, reviewRequired)
+        every { issuanceRequestProducer.publishAndWait(any()) } just runs
 
         val replayedCount = service.replay(listOf(1L, 2L))
 
         assertEquals(2, replayedCount)
         assertEquals(IssuanceDltStatus.REPLAYED, pending.status)
         assertEquals(IssuanceDltStatus.REPLAYED, reviewRequired.status)
-        verify(exactly = 2) { producer.publishAndWait(any()) }
+        verify(exactly = 2) { issuanceRequestProducer.publishAndWait(any()) }
     }
 
     @Test
@@ -123,11 +123,11 @@ class IssuanceDltServiceTest {
             couponId = null
             userId = null
         }
-        every { repository.findAllByIdForUpdate(listOf(1L)) } returns listOf(invalid)
+        every { issuanceDltLogRepository.findAllByIdForUpdate(listOf(1L)) } returns listOf(invalid)
 
         assertFailsWith<IllegalArgumentException> { service.replay(listOf(1L)) }
 
-        verify(exactly = 0) { producer.publishAndWait(any()) }
+        verify(exactly = 0) { issuanceRequestProducer.publishAndWait(any()) }
     }
 
     private fun record() = ConsumerRecord(
@@ -141,8 +141,6 @@ class IssuanceDltServiceTest {
 
     private fun log(id: Long, status: IssuanceDltStatus) = IssuanceDltLog(
         messageKey = "issuance.requested.DLT:0:$id",
-        dltPartition = 0,
-        dltOffset = id,
         couponId = 1L,
         userId = 42L,
         issuedAt = LocalDateTime.now(),
