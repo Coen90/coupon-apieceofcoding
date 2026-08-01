@@ -31,6 +31,3 @@ class AlreadyUsedException(message: String = "이미 사용된 쿠폰입니다")
 
 class ExpiredException(message: String = "유효기간이 만료된 쿠폰입니다") :
     DomainException("EXPIRED", HttpStatus.CONFLICT, message)
-
-class CanceledException(message: String = "취소된 쿠폰입니다") :
-    DomainException("CANCELED", HttpStatus.CONFLICT, message)
