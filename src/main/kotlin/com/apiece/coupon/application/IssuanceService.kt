@@ -4,7 +4,6 @@ import com.apiece.coupon.domain.Issuance
 import com.apiece.coupon.domain.IssuanceRepository
 import com.apiece.coupon.domain.IssuanceStatus
 import com.apiece.coupon.support.AlreadyUsedException
-import com.apiece.coupon.support.CanceledException
 import com.apiece.coupon.support.ExpiredException
 import com.apiece.coupon.support.IssuanceNotFoundException
 import com.apiece.coupon.support.NotOwnerException
@@ -29,7 +28,6 @@ class IssuanceService(
         when (issuance.status) {
             IssuanceStatus.USED -> throw AlreadyUsedException()
             IssuanceStatus.EXPIRED -> throw ExpiredException()
-            IssuanceStatus.CANCELED -> throw CanceledException()
             IssuanceStatus.ISSUED -> Unit
         }
 

@@ -72,7 +72,7 @@ class ReconcilerTest {
     @Test
     fun `목록 측 휘발이면 DB 의 누락 user_id 를 SADD 자동 보정`() {
         setup(total = 5000, issued = 10, stock = 4990, users = 0, soldOut = false)
-        every { issuanceRepository.findNonCanceledUserIds(couponId) } returns (1L..10L).toList()
+        every { issuanceRepository.findUserIdsByCouponId(couponId) } returns (1L..10L).toList()
         every { redis.userIds(couponId) } returns emptySet()
 
         val report = reconciler.auditAll()
@@ -126,7 +126,7 @@ class ReconcilerTest {
     @Test
     fun `재고가 음수면 DB 측 잔차가 0이어도 자동 보정하지 않음`() {
         setup(total = 10, issued = 11, stock = -1, users = 0, soldOut = false)
-        every { issuanceRepository.findNonCanceledUserIds(couponId) } returns (1L..11L).toList()
+        every { issuanceRepository.findUserIdsByCouponId(couponId) } returns (1L..11L).toList()
 
         val report = reconciler.auditAll()
 
@@ -147,7 +147,7 @@ class ReconcilerTest {
     @Test
     fun `누락 수와 DB 사용자가 맞지 않으면 자동 보정하지 않고 알람`() {
         setup(total = 5000, issued = 10, stock = 4990, users = 9, soldOut = false)
-        every { issuanceRepository.findNonCanceledUserIds(couponId) } returns (1L..10L).toList()
+        every { issuanceRepository.findUserIdsByCouponId(couponId) } returns (1L..10L).toList()
         every { redis.userIds(couponId) } returns (1L..8L).map { it.toString() }.toSet()
 
         val report = reconciler.auditAll()
