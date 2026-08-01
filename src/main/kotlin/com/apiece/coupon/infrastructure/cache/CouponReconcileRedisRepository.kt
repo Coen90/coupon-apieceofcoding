@@ -6,12 +6,12 @@ import java.util.concurrent.TimeUnit
 
 @Repository
 class CouponReconcileRedisRepository(
-    private val redis: StringRedisTemplate,
+    private val redisTemplate: StringRedisTemplate,
 ) {
 
     fun couponIdsIssuedBetween(fromExclusiveMs: Long, toInclusiveMs: Long): List<Long> {
         if (toInclusiveMs <= fromExclusiveMs) return emptyList()
-        val members = redis.opsForZSet().rangeByScore(
+        val members = redisTemplate.opsForZSet().rangeByScore(
             "coupon:reconcile:recent",
             (fromExclusiveMs + 1).toDouble(),
             toInclusiveMs.toDouble(),
@@ -20,27 +20,27 @@ class CouponReconcileRedisRepository(
     }
 
     fun stock(couponId: Long): Long? =
-        redis.opsForValue().get("coupon:$couponId:stock")?.toLongOrNull()
+        redisTemplate.opsForValue().get("coupon:$couponId:stock")?.toLongOrNull()
 
     fun userCount(couponId: Long): Long =
-        redis.opsForSet().size("coupon:$couponId:users") ?: 0L
+        redisTemplate.opsForSet().size("coupon:$couponId:users") ?: 0L
 
     fun userIds(couponId: Long): Set<String> =
-        redis.opsForSet().members("coupon:$couponId:users") ?: emptySet()
+        redisTemplate.opsForSet().members("coupon:$couponId:users") ?: emptySet()
 
     fun soldOutExists(couponId: Long): Boolean =
-        redis.hasKey("coupon:$couponId:sold_out")
+        redisTemplate.hasKey("coupon:$couponId:sold_out")
 
     fun addUsers(couponId: Long, userIds: Collection<Long>) {
         if (userIds.isEmpty()) return
-        redis.opsForSet().add("coupon:$couponId:users", *userIds.map { it.toString() }.toTypedArray())
+        redisTemplate.opsForSet().add("coupon:$couponId:users", *userIds.map { it.toString() }.toTypedArray())
     }
 
     fun deleteSoldOut(couponId: Long) {
-        redis.delete("coupon:$couponId:sold_out")
+        redisTemplate.delete("coupon:$couponId:sold_out")
     }
 
     fun setSoldOut(couponId: Long, ttlSeconds: Long) {
-        redis.opsForValue().set("coupon:$couponId:sold_out", "1", ttlSeconds, TimeUnit.SECONDS)
+        redisTemplate.opsForValue().set("coupon:$couponId:sold_out", "1", ttlSeconds, TimeUnit.SECONDS)
     }
 }
