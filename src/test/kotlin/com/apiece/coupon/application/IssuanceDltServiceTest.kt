@@ -3,25 +3,23 @@ package com.apiece.coupon.application
 import com.apiece.coupon.domain.IssuanceDltLog
 import com.apiece.coupon.domain.IssuanceDltLogRepository
 import com.apiece.coupon.domain.IssuanceDltStatus
-import com.apiece.coupon.infrastructure.messaging.IssuanceRequestProducer
+import com.apiece.coupon.infrastructure.messaging.IssuanceDltRecordParser
 import io.mockk.every
-import io.mockk.just
 import io.mockk.mockk
-import io.mockk.runs
 import io.mockk.slot
 import io.mockk.verify
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.header.internals.RecordHeader
 import org.junit.jupiter.api.Test
 import org.springframework.kafka.support.KafkaHeaders
-import java.time.LocalDateTime
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 
 class IssuanceDltServiceTest {
     private val issuanceDltLogRepository = mockk<IssuanceDltLogRepository>(relaxed = true)
-    private val issuanceRequestProducer = mockk<IssuanceRequestProducer>(relaxed = true)
-    private val service = IssuanceDltService(issuanceDltLogRepository, issuanceRequestProducer)
+    private val service = IssuanceDltService(
+        issuanceDltLogRepository,
+        IssuanceDltRecordParser(),
+    )
 
     init {
         every { issuanceDltLogRepository.existsByMessageKey(any()) } returns false
@@ -102,34 +100,6 @@ class IssuanceDltServiceTest {
         assertEquals("REPLAY_LIMIT_EXCEEDED", saved.captured.decisionReason)
     }
 
-    @Test
-    fun `선택한 대기와 확인 필요 로그를 원본 토픽에 재발행`() {
-        val pending = log(1L, IssuanceDltStatus.PENDING)
-        val reviewRequired = log(2L, IssuanceDltStatus.REVIEW_REQUIRED)
-        every { issuanceDltLogRepository.findAllByIdForUpdate(listOf(1L, 2L)) } returns listOf(pending, reviewRequired)
-        every { issuanceRequestProducer.publishAndWait(any()) } just runs
-
-        val replayedCount = service.replay(listOf(1L, 2L))
-
-        assertEquals(2, replayedCount)
-        assertEquals(IssuanceDltStatus.REPLAYED, pending.status)
-        assertEquals(IssuanceDltStatus.REPLAYED, reviewRequired.status)
-        verify(exactly = 2) { issuanceRequestProducer.publishAndWait(any()) }
-    }
-
-    @Test
-    fun `발급 정보를 복원할 수 없는 확인 필요 로그는 재발행하지 않음`() {
-        val invalid = log(1L, IssuanceDltStatus.REVIEW_REQUIRED).apply {
-            couponId = null
-            userId = null
-        }
-        every { issuanceDltLogRepository.findAllByIdForUpdate(listOf(1L)) } returns listOf(invalid)
-
-        assertFailsWith<IllegalArgumentException> { service.replay(listOf(1L)) }
-
-        verify(exactly = 0) { issuanceRequestProducer.publishAndWait(any()) }
-    }
-
     private fun record() = ConsumerRecord(
         "issuance.requested.DLT",
         0,
@@ -137,16 +107,5 @@ class IssuanceDltServiceTest {
         "42",
         """{"couponId":1,"userId":42,"issuedAt":"2026-07-15T00:00:00","expiresAt":"2026-07-22T00:00:00"}"""
             .toByteArray(),
-    )
-
-    private fun log(id: Long, status: IssuanceDltStatus) = IssuanceDltLog(
-        messageKey = "issuance.requested.DLT:0:$id",
-        couponId = 1L,
-        userId = 42L,
-        issuedAt = LocalDateTime.now(),
-        expiresAt = LocalDateTime.now().plusDays(7),
-        status = status,
-        receivedAt = LocalDateTime.now(),
-        id = id,
     )
 }
