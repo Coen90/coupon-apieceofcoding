@@ -14,23 +14,23 @@ private val log = KotlinLogging.logger {}
 // Redis 대기실. 모든 서버가 같은 줄(Sorted Set)/통과 명단을 봐서, 서버가 몇 대든 통과 속도가 유지된다.
 @Component
 class RedisWaitingRoom(
-    private val repository: WaitingRoomRedisRepository,
-    private val properties: WaitingRoomProperties,
+    private val waitingRoomRedisRepository: WaitingRoomRedisRepository,
+    private val waitingRoomProperties: WaitingRoomProperties,
     private val trafficMetrics: TrafficMetrics,
 ) : WaitingRoom {
 
     override fun enter(couponId: Long, userId: Long): Admission {
-        val (admitted, position) = repository.enter(couponId, userId)
+        val (admitted, position) = waitingRoomRedisRepository.enter(couponId, userId)
         return if (admitted) Admission.ADMITTED
-        else Admission.waiting(position, properties.admitPerSecond)
+        else Admission.waiting(position, waitingRoomProperties.admitPerSecond)
     }
 
     override fun isAdmitted(couponId: Long, userId: Long): Boolean =
         try {
-            repository.isAdmitted(couponId, userId)
+            waitingRoomRedisRepository.isAdmitted(couponId, userId)
         } catch (e: DataAccessException) {
             // Redis 장애 시 기본은 fail-close (의심스러우면 막는다).
-            if (properties.failOpen) {
+            if (waitingRoomProperties.failOpen) {
                 log.warn(e) { "대기실 Redis 장애, fail-open 으로 통과 (위험)" }
                 true
             } else {
@@ -42,9 +42,9 @@ class RedisWaitingRoom(
     @Scheduled(fixedRate = 1000)
     @SchedulerLock(name = "waiting-room-drain", lockAtLeastFor = "PT0.95S", lockAtMostFor = "PT2S")
     fun drain() {
-        val passTtlSeconds = (properties.passTtlMs / 1000).coerceAtLeast(1)
-        repository.activeRooms().forEach { couponId ->
-            val admitted = repository.drain(couponId, properties.admitPerSecond, passTtlSeconds)
+        val passTtlSeconds = (waitingRoomProperties.passTtlMs / 1000).coerceAtLeast(1)
+        waitingRoomRedisRepository.activeRooms().forEach { couponId ->
+            val admitted = waitingRoomRedisRepository.drain(couponId, waitingRoomProperties.admitPerSecond, passTtlSeconds)
             trafficMetrics.addAdmitted(admitted)
         }
     }
