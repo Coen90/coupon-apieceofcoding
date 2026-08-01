@@ -1,4 +1,4 @@
-package com.apiece.coupon.application
+package com.apiece.coupon.batch
 
 import com.apiece.coupon.domain.ReconcileCheckpoint
 import com.apiece.coupon.domain.ReconcileCheckpointRepository

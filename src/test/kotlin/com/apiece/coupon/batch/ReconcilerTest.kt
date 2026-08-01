@@ -1,4 +1,4 @@
-package com.apiece.coupon.application
+package com.apiece.coupon.batch
 
 import com.apiece.coupon.domain.Coupon
 import com.apiece.coupon.domain.CouponRepository
@@ -21,12 +21,20 @@ class ReconcilerTest {
     private val metrics = mockk<ReconcileMetrics>(relaxUnitFun = true)
     private val checkpointStore = mockk<ReconcileCheckpointStore>(relaxUnitFun = true)
     private val gracePeriodMs = 10000L
-    private val reconciler = Reconciler(
-        couponRepository, issuanceRepository, redis,
+    private val reconcileProperties = ReconcileProperties(intervalMs = 60000, gracePeriodMs = gracePeriodMs)
+    private val couponReconciler = CouponReconciler(
+        couponRepository,
+        issuanceRepository,
+        redis,
         SoldOutProperties(ttlSeconds = 86400, fastPathTtlMs = 1000),
-        ReconcileProperties(intervalMs = 60000, gracePeriodMs = gracePeriodMs),
+    )
+    private val reconciler = Reconciler(
+        couponRepository,
+        redis,
+        reconcileProperties,
         metrics,
         checkpointStore,
+        couponReconciler,
     )
 
     private val couponId = 1L
