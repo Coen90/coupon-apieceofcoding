@@ -73,12 +73,38 @@ reconcile() {
   summary "part-5-2"
 }
 
+source_stage() {
+  if [[ -f src/main/kotlin/com/apiece/coupon/batch/Reconciler.kt ]]; then
+    printf 'part-5-2'
+  elif [[ -f src/main/kotlin/com/apiece/coupon/application/IssuanceDltService.kt ]]; then
+    printf 'part-5-1'
+  else
+    printf 'part-5-0'
+  fi
+}
+
+runtime_stage() {
+  if curl -fsS "$BASE/metrics/reconcile" >/dev/null 2>&1; then
+    printf 'part-5-2'
+  elif curl -fsS "$BASE/admin/issuance/dlt" >/dev/null 2>&1; then
+    printf 'part-5-1'
+  else
+    printf 'part-5-0'
+  fi
+}
+
 wait_service_ready || { printf 'coupon-service 준비 실패\n' >&2; exit 1; }
 
-if curl -fsS "$BASE/metrics/reconcile" >/dev/null 2>&1; then
-  reconcile
-elif curl -fsS "$BASE/admin/issuance/dlt" >/dev/null 2>&1; then
-  dlt_replay
-else
-  baseline
+source="$(source_stage)"
+runtime="$(runtime_stage)"
+if [[ "$source" != "$runtime" ]]; then
+  printf '현재 소스는 %s이지만 실행 중인 coupon-service는 %s입니다.\n' "$source" "$runtime" >&2
+  printf './gradlew jibDockerBuild 후 docker compose up -d --force-recreate coupon-service를 실행하세요.\n' >&2
+  exit 1
 fi
+
+case "$source" in
+  part-5-2) reconcile ;;
+  part-5-1) dlt_replay ;;
+  part-5-0) baseline ;;
+esac
