@@ -30,8 +30,6 @@ CREATE TABLE issuance (
 CREATE TABLE issuance_dlt_log (
     id                  BIGINT        NOT NULL AUTO_INCREMENT,
     message_key         VARCHAR(300)  NOT NULL,
-    dlt_partition       INT           NOT NULL,
-    dlt_offset          BIGINT        NOT NULL,
     coupon_id           BIGINT        NULL,
     user_id             BIGINT        NULL,
     issued_at           DATETIME(3)   NULL,
@@ -42,8 +40,6 @@ CREATE TABLE issuance_dlt_log (
     status              VARCHAR(16)   NOT NULL DEFAULT 'PENDING',
     decision_reason     VARCHAR(64)   NULL,
     received_at         DATETIME(3)   NOT NULL,
-    resolved_at         DATETIME(3)   NULL,
-    version             BIGINT        NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uk_issuance_dlt_message_key (message_key),
     KEY idx_issuance_dlt_status (status),
