@@ -52,6 +52,16 @@ reconcile() {
   export COUPON_RECONCILE_AUDIT_CRON="0 0 0 1 1 *"
   restart_service 3600000
 
+  printf '\n\033[1;35m##### 최근 대사 색인 #####\033[0m\n'
+  ./scripts/load/reset.sh >/dev/null
+  cid="$(./scripts/load/create_coupon.sh)"
+  curl -fsS -X POST "$BASE/api/coupons/$cid/issue" -H 'X-User-Id: 800001' >/dev/null
+  [[ -n "$(redis_cli ZSCORE coupon:reconcile:recent "$cid")" ]] && pass "발급 쿠폰 색인 기록" || ng "발급 쿠폰 색인 기록"
+  for _ in $(seq 1 30); do
+    [[ "$(mysql_scalar "SELECT COUNT(*) FROM issuance WHERE coupon_id=$cid AND user_id=800001")" == "1" ]] && break
+    sleep 1
+  done
+
   printf '\n\033[1;35m##### Redis users 누락 자동 보정 #####\033[0m\n'
   ./scripts/load/reset.sh >/dev/null
   curl -fsS -X POST "$BASE/metrics/reconcile/reset" >/dev/null
