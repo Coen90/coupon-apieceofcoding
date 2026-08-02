@@ -54,4 +54,4 @@ part-5 는 두 등식 `total = 발급누적 + Redis재고 = Redis사용자 + Red
 
 DLT consumer는 실패한 메시지 원문과 Kafka 오류 메시지를 `issuance_dlt_log`에 기록한다. 운영자는 `GET /admin/issuance/dlt`로 확인하고, 원인을 해결한 뒤 `POST /admin/issuance/dlt/replay`에 `{"ids": [1, 2]}`를 보내 선택한 메시지를 재처리한다.
 
-최근 발급 기록은 1분마다 대사하고, 이 기록에 의존하지 않는 느린 전수 audit은 하루 한 번 실행한다. `/admin/reconcile/run`은 같은 전수 audit을 즉시 실행한다.
+최근 발급 기록은 1분마다 대사한다. `/admin/reconcile/run`은 Redis 최근 발급 기록에 의존하지 않고 전체 쿠폰을 즉시 대사한다.

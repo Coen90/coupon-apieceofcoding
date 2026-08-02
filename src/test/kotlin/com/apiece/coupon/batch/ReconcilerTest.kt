@@ -35,14 +35,6 @@ class ReconcilerTest {
 
     private val couponId = 1L
 
-    @Test
-    fun `전수 audit은 하루 한 번 실행하도록 설정`() {
-        val scheduled = Reconciler::class.java.getDeclaredMethod("scheduledAudit")
-            .getAnnotation(org.springframework.scheduling.annotation.Scheduled::class.java)
-
-        assert(scheduled.cron == "\${coupon.reconcile.audit-cron}")
-    }
-
     private fun setup(
         total: Int, issued: Int,
         stock: Long, users: Long, soldOut: Boolean,
@@ -178,7 +170,7 @@ class ReconcilerTest {
     }
 
     @Test
-    fun `전수 audit 은 Redis 최근 발급 기록 대신 DB 의 모든 쿠폰을 검사`() {
+    fun `수동 전체 대사는 Redis 최근 발급 기록 대신 DB 의 모든 쿠폰을 검사`() {
         val coupon = Coupon(name = "t", totalQuantity = 10, issuedQuantity = 0, id = couponId)
         every { couponRepository.findAll() } returns listOf(coupon)
         every { couponRepository.findById(couponId) } returns Optional.of(coupon)

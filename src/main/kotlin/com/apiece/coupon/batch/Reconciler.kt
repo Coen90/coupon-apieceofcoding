@@ -23,12 +23,6 @@ class Reconciler(
         reconcileWindow(fromMs, cutoffMs)
     }
 
-    @Scheduled(cron = "\${coupon.reconcile.audit-cron}")
-    fun scheduledAudit() {
-        val report = auditAll()
-        log.info { "일일 전수 audit 완료 checked=${report.checkedCoupons} alerts=${report.driftAlerts}" }
-    }
-
     fun auditAll(): ReconcileReport = reconcileCoupons(couponRepository.findAll().mapNotNull { it.id })
 
     private fun reconcileWindow(
