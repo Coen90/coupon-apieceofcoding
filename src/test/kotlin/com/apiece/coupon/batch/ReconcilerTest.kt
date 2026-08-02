@@ -180,7 +180,7 @@ class ReconcilerTest {
     }
 
     @Test
-    fun `전수 audit 은 Redis 색인 대신 DB 의 모든 쿠폰을 검사`() {
+    fun `전수 audit 은 Redis 최근 발급 기록 대신 DB 의 모든 쿠폰을 검사`() {
         val coupon = Coupon(name = "t", totalQuantity = 10, issuedQuantity = 0, id = couponId)
         every { couponRepository.findAll() } returns listOf(coupon)
         every { couponRepository.findById(couponId) } returns Optional.of(coupon)
