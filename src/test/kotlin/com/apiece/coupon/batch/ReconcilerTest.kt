@@ -18,7 +18,6 @@ class ReconcilerTest {
     private val couponRepository = mockk<CouponRepository>()
     private val issuanceRepository = mockk<IssuanceRepository>(relaxed = true)
     private val redis = mockk<CouponReconcileRedisRepository>(relaxUnitFun = true)
-    private val metrics = mockk<ReconcileMetrics>(relaxUnitFun = true)
     private val gracePeriodMs = 10000L
     private val reconcileProperties = ReconcileProperties(intervalMs = 60000, gracePeriodMs = gracePeriodMs)
     private val couponReconciler = CouponReconciler(
@@ -31,7 +30,6 @@ class ReconcilerTest {
         couponRepository,
         redis,
         reconcileProperties,
-        metrics,
         couponReconciler,
     )
 
