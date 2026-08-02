@@ -48,7 +48,6 @@ dlt_replay() {
 }
 
 reconcile() {
-  export COUPON_RECONCILE_AUDIT_CRON="0 0 0 1 1 *"
   restart_service 3600000
 
   printf '\n\033[1;35m##### 최근 대사 대상 등록 #####\033[0m\n'
