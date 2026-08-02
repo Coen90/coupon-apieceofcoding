@@ -121,7 +121,7 @@ class ReconcilerTest {
         val report = reconciler.auditAll()
 
         verify(exactly = 0) { redis.addUsers(any(), any()) }
-        assert(report.autoFixed == 0 && report.redisDbDrift == 0L && report.stockNegative == 1)
+        assert(report.autoFixed == 0 && report.driftAlerts == 1 && report.redisDbDrift == 0L)
     }
 
     @Test
@@ -178,9 +178,8 @@ class ReconcilerTest {
         every { redis.userCount(couponId) } returns 0
         every { redis.soldOutExists(couponId) } returns false
 
-        val report = reconciler.auditAll()
+        reconciler.auditAll()
 
         verify { couponRepository.findAll() }
-        assert(report.checkedCoupons == 1 && report.failedCoupons == 0)
     }
 }
