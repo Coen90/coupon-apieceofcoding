@@ -20,18 +20,11 @@ class Reconciler(
     fun scheduledRecent() {
         val cutoffMs = System.currentTimeMillis() - reconcileProperties.gracePeriodMs
         val fromMs = cutoffMs - reconcileProperties.intervalMs * 2
-        reconcileWindow(fromMs, cutoffMs)
+        val couponIds = reconcileRedisRepository.couponIdsIssuedBetween(fromMs, cutoffMs)
+        reconcileCoupons(couponIds)
     }
 
     fun auditAll(): ReconcileReport = reconcileCoupons(couponRepository.findAll().mapNotNull { it.id })
-
-    private fun reconcileWindow(
-        fromExclusiveMs: Long,
-        toInclusiveMs: Long,
-    ): ReconcileReport {
-        val couponIds = reconcileRedisRepository.couponIdsIssuedBetween(fromExclusiveMs, toInclusiveMs)
-        return reconcileCoupons(couponIds)
-    }
 
     private fun reconcileCoupons(couponIds: List<Long>): ReconcileReport {
         val outcomes = couponIds.map { couponId ->
@@ -39,17 +32,13 @@ class Reconciler(
                 couponReconciler.reconcile(couponId)
             } catch (e: Exception) {
                 log.warn(e) { "reconcile 중 예외 coupon=$couponId, 다음 회차에 재시도" }
-                CouponReconcileOutcome(failed = true)
+                CouponReconcileOutcome(driftAlert = true)
             }
         }
-        val report = ReconcileReport(
-            checkedCoupons = couponIds.size,
+        return ReconcileReport(
             autoFixed = outcomes.sumOf { it.autoFixed },
-            driftAlerts = outcomes.count { it.confirmedDbDrift > 0 || it.listDriftAlert },
-            redisDbDrift = outcomes.sumOf { it.confirmedDbDrift },
-            stockNegative = outcomes.count { it.stockNegative },
-            failedCoupons = outcomes.count { it.failed },
+            driftAlerts = outcomes.count { it.driftAlert },
+            redisDbDrift = outcomes.sumOf { it.redisDbDrift },
         )
-        return report
     }
 }
