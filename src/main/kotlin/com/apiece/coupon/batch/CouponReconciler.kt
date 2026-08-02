@@ -20,7 +20,7 @@ class CouponReconciler(
     fun reconcile(couponId: Long): CouponReconcileOutcome {
         val snapshot = readSnapshot(couponId)
         if (snapshot == null) {
-            log.warn { "Redis stock 키가 없어 대상을 확인할 수 없음 coupon=$couponId (전수 audit 대상)" }
+            log.warn { "Redis stock 키가 없어 대상을 확인할 수 없음 coupon=$couponId (수동 확인 필요)" }
             return CouponReconcileOutcome(confirmedDbDrift = 1)
         }
 

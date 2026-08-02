@@ -38,8 +38,6 @@ coupon:
   reconcile:
     # 정합성 점검 배치 주기. 매 분 1회. 발급 시각 window 한 칸의 너비이기도 하다.
     interval-ms: ${COUPON_RECONCILE_INTERVAL_MS:60000}
-    # Redis 최근 발급 기록에서 놓친 불일치를 다시 보는 느린 전수 audit. 매일 오전 3시.
-    audit-cron: "${COUPON_RECONCILE_AUDIT_CRON:0 0 3 * * *}"
     # 발급 시각 window 상한 여유분. 방금 발급돼 DB 가 아직 안 따라온 쿠폰은 cutoff(now - grace) 이후라 제외된다.
     grace-period-ms: ${COUPON_RECONCILE_GRACE_PERIOD_MS:10000}
   waiting-room:
