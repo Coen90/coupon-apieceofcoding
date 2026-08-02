@@ -60,7 +60,7 @@ part-5 는 두 등식 `total = 발급누적 + Redis재고 = Redis사용자 + Red
 
 DLT consumer는 실패한 메시지 원문과 Kafka 오류 메시지를 `issuance_dlt_log`에 기록한다. 운영자는 `GET /admin/issuance/dlt`로 확인하고, 원인을 해결한 뒤 `POST /admin/issuance/dlt/replay`에 `{"ids": [1, 2]}`를 보내 선택한 메시지를 재처리한다.
 
-최근 발급 구간은 1분마다 대사하고, Redis 색인을 사용하지 않는 느린 전수 audit은 하루 한 번 실행한다. `/admin/reconcile/run`은 같은 전수 audit을 즉시 실행한다.
+최근 발급 기록은 1분마다 대사하고, 이 기록에 의존하지 않는 느린 전수 audit은 하루 한 번 실행한다. `/admin/reconcile/run`은 같은 전수 audit을 즉시 실행한다.
 
 part-6 는 매진 전 폭주 베이스라인이다. 기본값은 `RATE=1000`, `DURATION=20s`, `QUANTITY=1000000` 이며, `/metrics/traffic/reset` 으로 카운터를 초기화한 뒤 발급 엔드포인트 도착량을 `/metrics/traffic` 에서 읽어 초당 도착 속도를 출력한다.
 part-6 은 브랜치별 대표 스크립트 한 줄로 실행한다. 6-0 은 대기실 없는 발급 폭주 베이스라인, 6-1 은 Redis 대기실 통과 속도, 6-2 는 게이트웨이 Rate Limit 으로 어뷰저를 앞단에서 자르는 흐름을 확인한다.
