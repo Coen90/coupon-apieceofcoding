@@ -18,83 +18,67 @@ class CouponReconciler(
     private val soldOutProperties: SoldOutProperties,
 ) {
     fun reconcile(couponId: Long): CouponReconcileOutcome {
-        val snapshot = readSnapshot(couponId)
-        if (snapshot == null) {
-            log.warn { "Redis stock 키가 없어 대상을 확인할 수 없음 coupon=$couponId (수동 확인 필요)" }
-            return CouponReconcileOutcome(confirmedDbDrift = 1)
+        val coupon = couponRepository.findById(couponId).orElse(null)
+            ?: return alert(couponId, "쿠폰 없음")
+        val stock = reconcileRedisRepository.stock(couponId)
+            ?: return alert(couponId, "Redis stock 없음")
+        val dbDrift = coupon.totalQuantity - (coupon.issuedQuantity + stock)
+        val stockNegative = stock < 0
+        if (stockNegative) log.warn { "재고 음수 감지 coupon=$couponId stock=$stock" }
+        if (dbDrift != 0L) {
+            log.warn { "DB 측 불일치 감지 coupon=$couponId residual=$dbDrift (자동 보정 불가, 사람 확인)" }
+        }
+        if (stockNegative || dbDrift != 0L) {
+            return CouponReconcileOutcome(redisDbDrift = abs(dbDrift), driftAlert = true)
         }
 
-        unsafeOutcome(couponId, snapshot)?.let { return it }
-
-        var autoFixed = reconcileSoldOut(couponId, snapshot)
-        var listDriftAlert = false
-        if (snapshot.listResidual > 0) {
+        var autoFixed = reconcileSoldOut(couponId, stock)
+        val userDrift = coupon.totalQuantity - (reconcileRedisRepository.userCount(couponId) + stock)
+        var driftAlert = false
+        if (userDrift > 0) {
             val redisUserIds = reconcileRedisRepository.userIds(couponId).mapNotNull { it.toLongOrNull() }.toSet()
             val missingUserIds = issuanceRepository.findUserIdsByCouponId(couponId) - redisUserIds
-            if (missingUserIds.size.toLong() == snapshot.listResidual) {
+            if (missingUserIds.size.toLong() == userDrift) {
                 reconcileRedisRepository.addUsers(couponId, missingUserIds)
                 autoFixed++
                 log.info { "auto-fix: 사용자 목록 SADD ${missingUserIds.size}건 coupon=$couponId" }
             } else {
-                listDriftAlert = true
+                driftAlert = true
                 log.warn { "Redis 사용자 목록을 안전하게 복구할 수 없음 coupon=$couponId" }
             }
-        } else if (snapshot.listResidual < 0) {
-            listDriftAlert = true
-            log.warn { "Redis 사용자 목록 초과 감지 coupon=$couponId residual=${snapshot.listResidual}" }
+        } else if (userDrift < 0) {
+            driftAlert = true
+            log.warn { "Redis 사용자 목록 초과 감지 coupon=$couponId residual=$userDrift" }
         }
 
-        return CouponReconcileOutcome(autoFixed = autoFixed, listDriftAlert = listDriftAlert)
+        return CouponReconcileOutcome(autoFixed = autoFixed, driftAlert = driftAlert)
     }
 
-    private fun unsafeOutcome(couponId: Long, snapshot: ReconcileSnapshot): CouponReconcileOutcome? {
-        val stockNegative = snapshot.stock < 0
-        if (stockNegative) log.warn { "재고 음수 감지 coupon=$couponId stock=${snapshot.stock}" }
-
-        val dbResidual = snapshot.dbResidual
-        if (dbResidual != 0L) {
-            log.warn { "DB 측 불일치 감지 coupon=$couponId residual=$dbResidual (자동 보정 불가, 사람 확인)" }
-        }
-        if (!stockNegative && dbResidual == 0L) return null
-
-        return CouponReconcileOutcome(
-            confirmedDbDrift = abs(dbResidual),
-            stockNegative = stockNegative,
-        )
-    }
-
-    private fun reconcileSoldOut(couponId: Long, snapshot: ReconcileSnapshot): Int =
-        when {
-            snapshot.stock > 0 && snapshot.soldOut -> {
+    private fun reconcileSoldOut(couponId: Long, stock: Long): Int {
+        val soldOut = reconcileRedisRepository.soldOutExists(couponId)
+        return when {
+            stock > 0 && soldOut -> {
                 reconcileRedisRepository.deleteSoldOut(couponId)
                 log.info { "auto-fix: 매진 플래그 해제 coupon=$couponId" }
                 1
             }
-            snapshot.stock == 0L && !snapshot.soldOut -> {
+            stock == 0L && !soldOut -> {
                 reconcileRedisRepository.setSoldOut(couponId, soldOutProperties.ttlSeconds)
                 log.info { "auto-fix: 매진 플래그 설정 coupon=$couponId" }
                 1
             }
             else -> 0
         }
+    }
 
-    private fun readSnapshot(couponId: Long): ReconcileSnapshot? {
-        val coupon = couponRepository.findById(couponId).orElse(null) ?: return null
-        val stock = reconcileRedisRepository.stock(couponId) ?: return null
-        return ReconcileSnapshot(
-            total = coupon.totalQuantity,
-            issued = coupon.issuedQuantity,
-            stock = stock,
-            userCount = reconcileRedisRepository.userCount(couponId),
-            soldOut = reconcileRedisRepository.soldOutExists(couponId),
-        )
+    private fun alert(couponId: Long, reason: String): CouponReconcileOutcome {
+        log.warn { "대상 확인 불가 coupon=$couponId reason=$reason (수동 확인 필요)" }
+        return CouponReconcileOutcome(driftAlert = true)
     }
 }
 
 class CouponReconcileOutcome(
     val autoFixed: Int = 0,
-    val confirmedDbDrift: Long = 0,
-    val stockNegative: Boolean = false,
-    val listDriftAlert: Boolean = false,
-    val failed: Boolean = false,
+    val redisDbDrift: Long = 0,
+    val driftAlert: Boolean = false,
 )
