@@ -14,7 +14,6 @@ class Reconciler(
     private val couponRepository: CouponRepository,
     private val reconcileRedisRepository: CouponReconcileRedisRepository,
     private val reconcileProperties: ReconcileProperties,
-    private val reconcileMetrics: ReconcileMetrics,
     private val couponReconciler: CouponReconciler,
 ) {
     @Scheduled(fixedRateString = "\${coupon.reconcile.interval-ms}")
@@ -57,9 +56,6 @@ class Reconciler(
             stockNegative = outcomes.count { it.stockNegative },
             failedCoupons = outcomes.count { it.failed },
         )
-        reconcileMetrics.setRedisDbDrift(report.redisDbDrift)
-        reconcileMetrics.setStockNegative(report.stockNegative.toLong())
-        reconcileMetrics.addAutoFix(report.autoFixed)
         return report
     }
 }
