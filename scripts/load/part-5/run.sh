@@ -63,21 +63,19 @@ reconcile() {
 
   printf '\n\033[1;35m##### Redis users 누락 자동 보정 #####\033[0m\n'
   ./scripts/load/reset.sh >/dev/null
-  curl -fsS -X POST "$BASE/metrics/reconcile/reset" >/dev/null
   cid="$(./scripts/load/create_coupon.sh)"
   COUPON_ID="$cid" COUNT="$COUNT" ./scripts/load/part-5/force_db_only.sh >/dev/null
-  curl -fsS -X POST "$BASE/admin/reconcile/run" >/dev/null
+  result="$(curl -fsS -X POST "$BASE/admin/reconcile/run")"
   check "발급자 명단 복구" "$(redis_cli SCARD "coupon:$cid:users")" "$COUNT"
-  check "자동 보정 횟수" "$(curl -fsS "$BASE/metrics/reconcile" | jq -r '.reconcileAutoFixTotal')" "1"
+  check "자동 보정 횟수" "$(jq -r '.autoFixed' <<< "$result")" "1"
 
   printf '\n\033[1;35m##### DB 측 불일치는 알람만 #####\033[0m\n'
   ./scripts/load/reset.sh >/dev/null
-  curl -fsS -X POST "$BASE/metrics/reconcile/reset" >/dev/null
   cid="$(./scripts/load/create_coupon.sh)"
   COUPON_ID="$cid" COUNT="$COUNT" ./scripts/load/part-5/force_dlt.sh >/dev/null
   stock_before="$(redis_cli GET "coupon:$cid:stock")"
-  curl -fsS -X POST "$BASE/admin/reconcile/run" >/dev/null
-  check "DB 측 불일치 감지" "$(curl -fsS "$BASE/metrics/reconcile" | jq -r '.redisDbDrift')" "$COUNT"
+  result="$(curl -fsS -X POST "$BASE/admin/reconcile/run")"
+  check "DB 측 불일치 감지" "$(jq -r '.redisDbDrift' <<< "$result")" "$COUNT"
   check "Redis 재고 유지" "$(redis_cli GET "coupon:$cid:stock")" "$stock_before"
   summary "part-5-2"
 }
@@ -93,7 +91,8 @@ source_stage() {
 }
 
 runtime_stage() {
-  if curl -fsS "$BASE/metrics/reconcile" >/dev/null 2>&1; then
+  reconcile_status="$(curl -sS -o /dev/null -w '%{http_code}' "$BASE/admin/reconcile/run")"
+  if [[ "$reconcile_status" == "405" ]]; then
     printf 'part-5-2'
   elif curl -fsS "$BASE/admin/issuance/dlt" >/dev/null 2>&1; then
     printf 'part-5-1'
