@@ -40,7 +40,7 @@ measure() {
 
 case "${1:-single}" in
   single)
-    docker compose --profile scale stop coupon-service-2 >/dev/null 2>&1 || true
+    docker compose --profile scale stop coupon-service-2 >/dev/null
     printf '\n\033[1;36m===== 1대 통과 속도 =====\033[0m\n'
     measure "$PRIMARY_BASE"
     ;;
