@@ -1,5 +1,4 @@
-// 엣지 관문(Spring Cloud Gateway). 별개 프로세스라 Boot 버전 독립 (본 앱 Boot 4, Spring Cloud 는 아직
-// Boot 4 미지원이라 게이트웨이만 Boot 3.5). 빌드: ./gradlew jibDockerBuild
+// 엣지 관문(Spring Cloud Gateway). 본 앱과 같은 Boot 4 계열을 사용한다. 빌드: ./gradlew jibDockerBuild
 plugins {
     kotlin("jvm") version "2.3.21"
     kotlin("plugin.spring") version "2.3.21"
@@ -12,7 +11,7 @@ version = "0.0.1-SNAPSHOT"
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(25)
     }
 }
 
@@ -22,11 +21,11 @@ repositories {
 
 dependencyManagement {
     imports {
-        // BOM 의 kotlin(1.9.25)을 플러그인(2.3.21)에 맞춘다. 안 맞추면 증분 컴파일이 깨진다.
-        mavenBom("org.springframework.boot:spring-boot-dependencies:3.5.3") {
+        // BOM 의 Kotlin 버전을 플러그인 버전에 맞춘다. 안 맞추면 증분 컴파일이 깨진다.
+        mavenBom("org.springframework.boot:spring-boot-dependencies:4.0.6") {
             bomProperty("kotlin.version", "2.3.21")
         }
-        mavenBom("org.springframework.cloud:spring-cloud-dependencies:2025.0.0")
+        mavenBom("org.springframework.cloud:spring-cloud-dependencies:2025.1.2")
     }
 }
 
@@ -45,7 +44,7 @@ kotlin {
 
 jib {
     from {
-        // 본 앱과 같은 base 이미지 사용. 21 바이트코드는 25 JRE 에서 그대로 돈다.
+        // 본 앱과 같은 base 이미지 사용.
         image = "eclipse-temurin:25-jre"
         platforms {
             platform {
