@@ -37,6 +37,3 @@ class NoWaitingRoomPassException(message: String = "대기실 입장권이 없�
 
 class WaitingRoomNotEnteredException(message: String = "대기실에 먼저 진입해야 합니다") :
     DomainException("WAITING_ROOM_NOT_ENTERED", HttpStatus.NOT_FOUND, message)
-
-class WaitingRoomUnavailableException(message: String = "대기실 점검 중입니다 (잠시 후 다시 시도해주세요)") :
-    DomainException("WAITING_ROOM_UNAVAILABLE", HttpStatus.SERVICE_UNAVAILABLE, message)

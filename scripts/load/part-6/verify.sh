@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# part-6-1 Redis 대기실 검증: 순서 보장, 진입 멱등성, 통과 후 발급, 게이트, fail-close.
+# part-6-1 Redis 대기실 검증: 순서 보장, 진입 멱등성, 통과 후 발급, 게이트.
 # 사전: docker compose 스택 + coupon-service(part-6-1 이미지)가 떠 있어야 한다.
 set -euo pipefail
 cd "$(dirname "$0")/../../.."
@@ -23,14 +23,6 @@ wait_until_admitted() {
   done
   echo false
 }
-redis_paused=false
-cleanup() {
-  if [[ "$redis_paused" == "true" ]]; then
-    docker compose unpause redis >/dev/null 2>&1 || true
-  fi
-}
-trap cleanup EXIT
-
 printf '\n\033[1;36m===== part-6-1 Redis 대기실 검증 =====\033[0m\n'
 ./scripts/load/reset.sh >/dev/null
 coupon=$(BASE_URL="$BASE" ./scripts/load/part-6/create_big_coupon.sh)
@@ -53,14 +45,6 @@ check "user 1 발급 응답" "$(issue_code "$coupon" 1)" "200"
 
 printf '\n[게이트] 대기실 안 거친 사용자는 발급 차단 (403)\n'
 check "입장권 없는 발급" "$(issue_code "$coupon" 99999)" "403"
-
-printf '\n[fail-close] 대기실 Redis 다운 시 발급이 막히고 점검 응답(503)\n'
-docker compose pause redis >/dev/null
-redis_paused=true
-code=$(issue_code "$coupon" 1)
-docker compose unpause redis >/dev/null
-redis_paused=false
-check "Redis 다운 중 발급" "$code" "503"
 
 if (( fail == 0 )); then
   printf '\n\033[1;32m===== 모두 통과 =====\033[0m\n'
