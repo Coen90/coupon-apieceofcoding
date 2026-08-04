@@ -41,9 +41,12 @@ class RedisWaitingRoom(
     @Scheduled(fixedRate = 1000)
     @SchedulerLock(name = "waiting-room-drain", lockAtLeastFor = "PT0.95S", lockAtMostFor = "PT2S")
     fun drain() {
-        val passTtlSeconds = (waitingRoomProperties.passTtlMs / 1000).coerceAtLeast(1)
         waitingRoomRedisRepository.activeRooms().forEach { couponId ->
-            val admitted = waitingRoomRedisRepository.drain(couponId, waitingRoomProperties.admitPerSecond, passTtlSeconds)
+            val admitted = waitingRoomRedisRepository.drain(
+                couponId,
+                waitingRoomProperties.admitPerSecond,
+                waitingRoomProperties.passTtlMs,
+            )
             trafficMetrics.addAdmitted(admitted)
         }
     }
