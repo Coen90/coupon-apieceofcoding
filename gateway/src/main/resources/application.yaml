@@ -13,15 +13,15 @@ spring:
       server:
         webflux:
           routes:
-            # 대기실 진입을 클라이언트 IP별로 제한. 한도 넘으면 429 (어뷰저 컷).
-            - id: waiting-room-enter
+            # 대기실 진입과 쿠폰 발급을 사용자별로 제한. 한도 넘으면 429 (어뷰저 컷).
+            - id: protected-coupon-flow
               uri: ${COUPON_SERVICE_URI:http://localhost:8080}
               predicates:
-                - Path=/api/waiting-room/**
+                - Path=/api/waiting-room/**,/api/coupons/*/issue
               filters:
                 - name: RequestRateLimiter
                   args:
-                    key-resolver: "#{@clientIpKeyResolver}"
+                    key-resolver: "#{@userIdKeyResolver}"
                     # Token Bucket: 초당 replenishRate 채움, 순간 최대 burstCapacity.
                     redis-rate-limiter.replenishRate: ${RATE_LIMIT_REPLENISH:5}
                     redis-rate-limiter.burstCapacity: ${RATE_LIMIT_BURST:10}
