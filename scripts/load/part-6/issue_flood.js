@@ -23,7 +23,7 @@ export const options = {
 };
 
 export default function () {
-  const userId = `${__VU}${(__ITER + 1) * 100000}`;
+  const userId = String(__VU * 10_000_000 + __ITER);
   const res = http.post(`${BASE}/api/coupons/${COUPON_ID}/issue`, null, {
     headers: { 'X-User-Id': userId },
   });

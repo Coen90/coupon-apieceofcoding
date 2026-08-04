@@ -7,14 +7,16 @@ cd "$(dirname "$0")/../../.."
 BASE="${BASE_URL:-http://localhost:8080}"
 RATE="${RATE:-1000}"
 DURATION="${DURATION:-20s}"
+QUANTITY="${QUANTITY:-1000000}"
 
 printf '\n\033[1;36m===== part-6-0 베이스라인: 매진 전 폭주 (대기실 없음) =====\033[0m\n'
 ./scripts/load/reset.sh >/dev/null
-coupon_id=$(./scripts/load/part-6/create_big_coupon.sh)
-printf '쿠폰 %s 생성 (재고 100만, 매진이 측정에 끼지 않게)\n' "$coupon_id"
+coupon_id=$(BASE_URL="$BASE" QUANTITY="$QUANTITY" ./scripts/load/part-6/create_big_coupon.sh)
+printf '쿠폰 %s 생성 (재고 %s, 매진이 측정에 끼지 않게)\n' "$coupon_id" "$QUANTITY"
 
 curl -fsS -X POST "$BASE/metrics/traffic/reset" >/dev/null
-k6 run -e COUPON_ID="$coupon_id" -e RATE="$RATE" -e DURATION="$DURATION" scripts/load/part-6/issue_flood.js
+k6 run -e COUPON_ID="$coupon_id" -e BASE_URL="$BASE" -e RATE="$RATE" -e DURATION="$DURATION" \
+  scripts/load/part-6/issue_flood.js
 
 arrivals=$(curl -fsS "$BASE/metrics/traffic" | jq -r '.issueArrivals')
 secs=${DURATION%s}
