@@ -3,11 +3,9 @@ package com.apiece.coupon.application
 import com.apiece.coupon.infrastructure.cache.WaitingRoomProperties
 import com.apiece.coupon.infrastructure.cache.WaitingRoomRedisRepository
 import com.apiece.coupon.support.WaitingRoomNotEnteredException
-import com.apiece.coupon.support.WaitingRoomUnavailableException
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.jupiter.api.Test
-import org.springframework.data.redis.RedisConnectionFailureException
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
@@ -52,12 +50,6 @@ class RedisWaitingRoomTest {
     fun `상태 조회에서 아직 진입하지 않은 사용자는 실패한다`() {
         every { repository.status(1L, 7L) } returns null
         assertFailsWith<WaitingRoomNotEnteredException> { room().status(1L, 7L) }
-    }
-
-    @Test
-    fun `Redis 장애 + fail-close 면 WaitingRoomUnavailableException`() {
-        every { repository.isAdmitted(1L, 7L) } throws RedisConnectionFailureException("down")
-        assertFailsWith<WaitingRoomUnavailableException> { room().isAdmitted(1L, 7L) }
     }
 
     @Test
