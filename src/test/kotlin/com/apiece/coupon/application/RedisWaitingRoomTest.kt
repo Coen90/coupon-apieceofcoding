@@ -2,6 +2,7 @@ package com.apiece.coupon.application
 
 import com.apiece.coupon.infrastructure.cache.WaitingRoomProperties
 import com.apiece.coupon.infrastructure.cache.WaitingRoomRedisRepository
+import com.apiece.coupon.support.WaitingRoomNotEnteredException
 import com.apiece.coupon.support.WaitingRoomUnavailableException
 import io.mockk.every
 import io.mockk.mockk
@@ -17,9 +18,9 @@ class RedisWaitingRoomTest {
     private val repository = mockk<WaitingRoomRedisRepository>()
     private val metrics = TrafficMetrics()
 
-    private fun room(failOpen: Boolean = false) = RedisWaitingRoom(
+    private fun room() = RedisWaitingRoom(
         repository,
-        WaitingRoomProperties(admitPerSecond = 100, passTtlMs = 30_000, failOpen = failOpen),
+        WaitingRoomProperties(admitPerSecond = 100, passTtlMs = 30_000),
         metrics,
     )
 
@@ -39,15 +40,24 @@ class RedisWaitingRoomTest {
     }
 
     @Test
-    fun `Redis 장애 + fail-close 면 WaitingRoomUnavailableException`() {
-        every { repository.isAdmitted(1L, 7L) } throws RedisConnectionFailureException("down")
-        assertFailsWith<WaitingRoomUnavailableException> { room(failOpen = false).isAdmitted(1L, 7L) }
+    fun `상태 조회는 대기열을 다시 등록하지 않고 기존 순번을 반환한다`() {
+        every { repository.status(1L, 7L) } returns 250L
+        val admission = room().status(1L, 7L)
+        assertFalse(admission.admitted)
+        assertEquals(250L, admission.position)
+        assertEquals(3L, admission.estimatedWaitSeconds)
     }
 
     @Test
-    fun `Redis 장애 + fail-open 이면 통과시킨다`() {
+    fun `상태 조회에서 아직 진입하지 않은 사용자는 실패한다`() {
+        every { repository.status(1L, 7L) } returns null
+        assertFailsWith<WaitingRoomNotEnteredException> { room().status(1L, 7L) }
+    }
+
+    @Test
+    fun `Redis 장애 + fail-close 면 WaitingRoomUnavailableException`() {
         every { repository.isAdmitted(1L, 7L) } throws RedisConnectionFailureException("down")
-        assertTrue(room(failOpen = true).isAdmitted(1L, 7L))
+        assertFailsWith<WaitingRoomUnavailableException> { room().isAdmitted(1L, 7L) }
     }
 
     @Test

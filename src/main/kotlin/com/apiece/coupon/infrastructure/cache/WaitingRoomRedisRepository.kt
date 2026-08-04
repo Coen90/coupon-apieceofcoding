@@ -8,6 +8,7 @@ class WaitingRoomRedisRepository(
     private val redisTemplate: StringRedisTemplate,
 ) {
     private val enterScript = listLuaScript("lua/waiting-room-enter.lua")
+    private val statusScript = longLuaScript("lua/waiting-room-status.lua")
     private val drainScript = longLuaScript("lua/waiting-room-drain.lua")
 
     // (통과 여부, 1-based 순번). 통과면 0.
@@ -19,6 +20,16 @@ class WaitingRoomRedisRepository(
         )
         redisTemplate.opsForSet().add(ROOMS_KEY, couponId.toString())
         return (result[0] == "1") to result[1].toLong()
+    }
+
+    // 반환: 0=통과, 1-based 순번=대기, null=아직 진입하지 않음.
+    fun status(couponId: Long, userId: Long): Long? {
+        val position = redisTemplate.runForLong(
+            statusScript,
+            listOf(queueKey(couponId), passKey(couponId, userId)),
+            userId,
+        )
+        return position.takeUnless { it < 0 }
     }
 
     fun isAdmitted(couponId: Long, userId: Long): Boolean =

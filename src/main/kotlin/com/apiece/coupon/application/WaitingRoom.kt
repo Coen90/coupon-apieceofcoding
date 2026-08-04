@@ -3,6 +3,8 @@ package com.apiece.coupon.application
 interface WaitingRoom {
     fun enter(couponId: Long, userId: Long): Admission
 
+    fun status(couponId: Long, userId: Long): Admission
+
     fun isAdmitted(couponId: Long, userId: Long): Boolean
 }
 
