@@ -12,7 +12,7 @@ printf '\n\033[1;36m===== part-6-2 Gateway Rate Limit: 어뷰저 컷 + 정상 �
 docker compose up -d gateway >/dev/null
 ready=false
 for _ in $(seq 1 60); do
-  if curl -fsS "$GATEWAY/metrics/traffic" >/dev/null 2>&1; then ready=true; break; fi
+  if curl -fsS "$GATEWAY/api/users/me/issuances" -H "X-User-Id: 1" >/dev/null 2>&1; then ready=true; break; fi
   sleep 1
 done
 [[ "$ready" == "true" ]] || { echo "게이트웨이 준비 실패" >&2; exit 1; }

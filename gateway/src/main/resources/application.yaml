@@ -13,11 +13,11 @@ spring:
       server:
         webflux:
           routes:
-            # 대기실 진입과 쿠폰 발급을 사용자별로 제한. 한도 넘으면 429 (어뷰저 컷).
-            - id: protected-coupon-flow
+            # 외부에 공개할 사용자 API만 명시하고 한도를 적용한다. 관리자와 메트릭 API는 라우팅하지 않는다.
+            - id: public-user-api
               uri: ${COUPON_SERVICE_URI:http://localhost:8080}
               predicates:
-                - Path=/api/waiting-room/**,/api/coupons/*/issue
+                - Path=/api/waiting-room/**,/api/coupons/*/issue,/api/issuances/*/use,/api/users/me/issuances
               filters:
                 - name: RequestRateLimiter
                   args:
@@ -26,8 +26,3 @@ spring:
                     redis-rate-limiter.replenishRate: ${RATE_LIMIT_REPLENISH:5}
                     redis-rate-limiter.burstCapacity: ${RATE_LIMIT_BURST:10}
                     redis-rate-limiter.requestedTokens: 1
-            # 나머지는 한도 없이 통과.
-            - id: passthrough
-              uri: ${COUPON_SERVICE_URI:http://localhost:8080}
-              predicates:
-                - Path=/**

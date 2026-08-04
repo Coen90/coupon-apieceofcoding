@@ -34,12 +34,19 @@ dependencies {
     // RedisRateLimiter 는 reactive Redis 필요. 저장소는 같은 Redis 재사용.
     implementation("org.springframework.boot:spring-boot-starter-data-redis-reactive")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
+    testImplementation("org.springframework.boot:spring-boot-starter-webflux-test")
+    testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 kotlin {
     compilerOptions {
         freeCompilerArgs.add("-Xjsr305=strict")
     }
+}
+
+tasks.withType<Test> {
+    useJUnitPlatform()
 }
 
 jib {

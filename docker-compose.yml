@@ -1,3 +1,4 @@
+# 로컬 실습용 포트는 같은 컴퓨터에서만 접근할 수 있도록 loopback에 바인딩한다.
 services:
   mysql:
     image: mysql:8.4
@@ -7,7 +8,7 @@ services:
       MYSQL_USER: coupon
       MYSQL_PASSWORD: coupon
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
@@ -20,7 +21,7 @@ services:
     image: redis:8.0
     command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis-data:/data
     healthcheck:
@@ -47,7 +48,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     ports:
-      - "9094:9094"
+      - "127.0.0.1:9094:9094"
     healthcheck:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092"]
       interval: 10s
@@ -82,7 +83,8 @@ services:
       COUPON_WAITING_ROOM_ADMIT_PER_SECOND: ${COUPON_WAITING_ROOM_ADMIT_PER_SECOND:-100}
       COUPON_WAITING_ROOM_PASS_TTL_MS: ${COUPON_WAITING_ROOM_PASS_TTL_MS:-30000}
     ports:
-      - "8080:8080"
+      # 강의 스크립트의 직접 측정용. 운영에서는 publish 하지 않고 Gateway 내부망으로만 연결한다.
+      - "127.0.0.1:8080:8080"
 
   # 통과 속도 유지 확인용 2번째 인스턴스. `docker compose --profile scale up -d` 로만 띄운다.
   coupon-service-2:
@@ -91,7 +93,7 @@ services:
     environment:
       <<: *coupon-env
     ports:
-      - "8081:8080"
+      - "127.0.0.1:8081:8080"
 
   # API Gateway. 어뷰저를 대기실 진입과 발급 앞에서 사용자별로 컷. 이미지 빌드: ./gradlew jibDockerBuild
   gateway:
@@ -109,7 +111,7 @@ services:
       RATE_LIMIT_REPLENISH: ${RATE_LIMIT_REPLENISH:-5}
       RATE_LIMIT_BURST: ${RATE_LIMIT_BURST:-10}
     ports:
-      - "8090:8080"
+      - "127.0.0.1:8090:8080"
 
 volumes:
   mysql-data:

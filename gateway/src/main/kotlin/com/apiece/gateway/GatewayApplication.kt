@@ -12,8 +12,15 @@ class GatewayApplication {
     @Bean
     fun userIdKeyResolver(): KeyResolver = KeyResolver { exchange ->
         // 강의에서는 기존 API의 사용자 식별 헤더를 사용한다. 운영에서는 인증된 principal을 키로 삼는다.
-        val userId = exchange.request.headers.getFirst("X-User-Id")
-        if (userId.isNullOrBlank()) Mono.empty() else Mono.just("user:$userId")
+        val userId = exchange.request.headers[USER_ID_HEADER]
+            ?.singleOrNull()
+            ?.toLongOrNull()
+            ?.takeIf { it > 0 }
+        if (userId == null) Mono.empty() else Mono.just("user:$userId")
+    }
+
+    private companion object {
+        const val USER_ID_HEADER = "X-User-Id"
     }
 }
 
