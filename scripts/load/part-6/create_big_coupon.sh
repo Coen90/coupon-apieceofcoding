@@ -3,7 +3,8 @@
 set -euo pipefail
 
 QUANTITY="${QUANTITY:-1000000}"
-curl -fsS -X POST http://localhost:8080/api/coupons \
+BASE="${BASE_URL:-http://localhost:8080}"
+curl -fsS -X POST "$BASE/api/coupons" \
   -H 'Content-Type: application/json' \
   -d "{\"name\":\"traffic test\",\"totalQuantity\":${QUANTITY},\"validityDays\":7}" \
   | jq -r '.id'

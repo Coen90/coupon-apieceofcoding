@@ -18,9 +18,9 @@ class RedisWaitingRoomTest {
     private val repository = mockk<WaitingRoomRedisRepository>()
     private val metrics = TrafficMetrics()
 
-    private fun room(failOpen: Boolean = false) = RedisWaitingRoom(
+    private fun room() = RedisWaitingRoom(
         repository,
-        WaitingRoomProperties(admitPerSecond = 100, passTtlMs = 30_000, failOpen = failOpen),
+        WaitingRoomProperties(admitPerSecond = 100, passTtlMs = 30_000),
         metrics,
     )
 
@@ -57,13 +57,7 @@ class RedisWaitingRoomTest {
     @Test
     fun `Redis 장애 + fail-close 면 WaitingRoomUnavailableException`() {
         every { repository.isAdmitted(1L, 7L) } throws RedisConnectionFailureException("down")
-        assertFailsWith<WaitingRoomUnavailableException> { room(failOpen = false).isAdmitted(1L, 7L) }
-    }
-
-    @Test
-    fun `Redis 장애 + fail-open 이면 통과시킨다`() {
-        every { repository.isAdmitted(1L, 7L) } throws RedisConnectionFailureException("down")
-        assertTrue(room(failOpen = true).isAdmitted(1L, 7L))
+        assertFailsWith<WaitingRoomUnavailableException> { room().isAdmitted(1L, 7L) }
     }
 
     @Test
