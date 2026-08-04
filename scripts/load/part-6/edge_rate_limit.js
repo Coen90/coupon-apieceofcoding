@@ -9,8 +9,10 @@ const DURATION = __ENV.DURATION || '10s';
 
 const abuserPassed = new Counter('abuser_passed');
 const abuserBlocked = new Counter('abuser_blocked');
+const abuserFailed = new Counter('abuser_failed');
 const normalPassed = new Counter('normal_passed');
 const normalBlocked = new Counter('normal_blocked');
+const normalFailed = new Counter('normal_failed');
 
 export const options = {
   scenarios: {
@@ -28,6 +30,8 @@ export const options = {
   thresholds: {
     normal_blocked: ['count==0'],  // 정상 사용자는 한 번도 안 막혀야
     abuser_blocked: ['count>0'],   // 어뷰저는 엣지에서 컷돼야
+    abuser_failed: ['count==0'],
+    normal_failed: ['count==0'],
   },
 };
 
@@ -37,14 +41,16 @@ export function abuser() {
   });
   if (res.status === 200) abuserPassed.add(1);
   else if (res.status === 429) abuserBlocked.add(1);
+  else abuserFailed.add(1);
 }
 
 export function normal() {
   const clientIp = `203.0.113.${(__VU % 250) + 1}`;  // VU 한 명 = 클라이언트 한 명
-  const userId = `9${__VU}${(__ITER + 1) * 1000}`;
+  const userId = String(9_000_000_000 + __VU * 1_000_000 + __ITER);
   const res = http.post(`${BASE}/api/waiting-room/${COUPON_ID}`, null, {
     headers: { 'X-Forwarded-For': clientIp, 'X-User-Id': userId },
   });
   if (res.status === 200) normalPassed.add(1);
   else if (res.status === 429) normalBlocked.add(1);
+  else normalFailed.add(1);
 }

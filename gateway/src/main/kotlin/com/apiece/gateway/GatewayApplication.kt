@@ -10,8 +10,8 @@ import reactor.core.publisher.Mono
 @SpringBootApplication
 class GatewayApplication {
 
-    // 한도 키는 신뢰 가능한 클라이언트 IP. 호출자가 넣는 헤더(X-User-Id 등)는 위조로 우회/표적 DoS 가 된다.
-    // maxTrustedIndex(1) = 프록시 1대만 신뢰해 X-Forwarded-For 위조를 막는다 (없으면 소켓 IP 폴백).
+    // 운영에서는 앞단의 신뢰 가능한 프록시가 X-Forwarded-For 를 관리한다는 전제로 클라이언트 IP 를 구한다.
+    // 로컬 검증에서는 k6 가 그 프록시 역할을 대신해 서로 다른 클라이언트 IP 를 넣는다.
     private val clientAddressResolver = XForwardedRemoteAddressResolver.maxTrustedIndex(1)
 
     @Bean
