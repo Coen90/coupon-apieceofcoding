@@ -63,8 +63,8 @@ class RedisWaitingRoomTest {
     @Test
     fun `드레인은 활성 대기실마다 통과 인원만큼 메트릭을 올린다`() {
         every { repository.activeRooms() } returns listOf(1L, 2L)
-        every { repository.drain(1L, 100, 30L) } returns 100
-        every { repository.drain(2L, 100, 30L) } returns 40
+        every { repository.drain(1L, 100, 30_000L) } returns 100
+        every { repository.drain(2L, 100, 30_000L) } returns 40
 
         room().drain()
 

@@ -35,11 +35,11 @@ class WaitingRoomRedisRepository(
     fun isAdmitted(couponId: Long, userId: Long): Boolean =
         redisTemplate.hasKey(passKey(couponId, userId))
 
-    fun drain(couponId: Long, admitPerSecond: Int, passTtlSeconds: Long): Int =
+    fun drain(couponId: Long, admitPerSecond: Int, passTtlMs: Long): Int =
         redisTemplate.runForLong(
             drainScript,
             listOf(queueKey(couponId)),
-            admitPerSecond, passTtlSeconds, passKeyPrefix(couponId),
+            admitPerSecond, passTtlMs, passKeyPrefix(couponId),
         ).toInt()
 
     fun activeRooms(): List<Long> =
