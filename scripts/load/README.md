@@ -53,7 +53,7 @@ scripts/load/part-3/kafka_dlt_peek.sh   # DLT 확인 (3-2c)
 # part-6 (트래픽 제어)
 ./scripts/load/part-6/run.sh   # 6-0 part-6-0-load-test: 매진 전 발급 폭주 베이스라인
 ./scripts/load/part-6/run.sh   # 6-1 part-6-1-waiting-room: Redis 대기실 통과 속도
-./scripts/load/part-6/edge.sh  # 6-2 part-6-2-edge-rate-limit: 엣지 Rate Limit
+./scripts/load/part-6/gateway_rate_limit.sh  # 6-2 part-6-2-edge-rate-limit: Gateway Rate Limit
 ```
 part-5 는 두 등식 `total = 발급누적 + Redis재고 = Redis사용자 + Redis재고` 의 잔차로 불일치를 잰다. `force_dlt` 는 DB 측(알람 대상), `force_db_only` 는 목록 측(자동 보정 대상)을 깬다.
 

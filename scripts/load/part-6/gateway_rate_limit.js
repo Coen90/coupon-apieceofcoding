@@ -1,4 +1,4 @@
-// 엣지 Rate Limit 검증. 게이트웨이로 어뷰저(같은 사용자)와 정상(각자 다른 사용자)을 동시에 보낸다.
+// Gateway Rate Limit 검증. Gateway로 어뷰저(같은 사용자)와 정상(각자 다른 사용자)을 동시에 보낸다.
 import http from 'k6/http';
 import { Counter } from 'k6/metrics';
 
@@ -28,7 +28,7 @@ export const options = {
   },
   thresholds: {
     normal_blocked: ['count==0'],  // 정상 사용자는 한 번도 안 막혀야
-    abuser_blocked: ['count>0'],   // 어뷰저는 엣지에서 컷돼야
+    abuser_blocked: ['count>0'],   // 어뷰저는 Gateway에서 컷돼야
     abuser_failed: ['count==0'],
     normal_failed: ['count==0'],
   },

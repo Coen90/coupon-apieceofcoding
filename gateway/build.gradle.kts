@@ -1,4 +1,4 @@
-// 엣지 관문(Spring Cloud Gateway). 본 앱과 같은 Boot 4 계열을 사용한다. 빌드: ./gradlew jibDockerBuild
+// API 관문(Spring Cloud Gateway). 본 앱과 같은 Boot 4 계열을 사용한다. 빌드: ./gradlew jibDockerBuild
 plugins {
     kotlin("jvm") version "2.3.21"
     kotlin("plugin.spring") version "2.3.21"

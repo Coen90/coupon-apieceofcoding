@@ -4,7 +4,7 @@
 
 ```bash
 # 이미지 빌드 (Docker daemon 필요)
-./gradlew jibDockerBuild            # 앱 + 엣지 게이트웨이 이미지 (coupon-service, coupon-gateway)
+./gradlew jibDockerBuild            # 앱 + Gateway 이미지 (coupon-service, coupon-gateway)
 
 docker compose up -d                # MySQL + Redis + Kafka + 앱 + 게이트웨이 기동
 ```
