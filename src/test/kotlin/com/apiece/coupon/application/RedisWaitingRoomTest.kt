@@ -62,4 +62,14 @@ class RedisWaitingRoomTest {
 
         assertEquals(140, metrics.snapshot().admitted)
     }
+
+    @Test
+    fun `통과 속도와 입장권 TTL은 양수여야 한다`() {
+        assertFailsWith<IllegalArgumentException> {
+            WaitingRoomProperties(admitPerSecond = 0, passTtlMs = 30_000)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            WaitingRoomProperties(admitPerSecond = 100, passTtlMs = 0)
+        }
+    }
 }
