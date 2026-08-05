@@ -6,4 +6,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 class WaitingRoomProperties(
     val admitPerSecond: Int,
     val passTtlMs: Long,
-)
+) {
+    init {
+        require(admitPerSecond > 0) { "admitPerSecond must be positive" }
+        require(passTtlMs > 0) { "passTtlMs must be positive" }
+    }
+}

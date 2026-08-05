@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# part-6-1 대기실 러너. 진입 폭주로 줄을 채운 뒤, 드레인이 매초 통과시킨 인원으로 통과 속도를 잰다.
+# part-6-1 대기실 러너. 진입 요청 급증으로 줄을 채운 뒤, 드레인이 매초 통과시킨 인원으로 통과 속도를 잰다.
 #   run.sh single   # 1대
 #   run.sh scale     # 2대로 늘려도 통과 속도가 유지되는지 (ShedLock)
 set -euo pipefail
@@ -19,11 +19,11 @@ wait_ready() {
   echo "$1 준비 실패"; exit 1
 }
 
-# measure <server-url>...  : 받은 서버들에 진입 폭주를 보내고 합산 통과 속도를 출력.
+# measure <server-url>...  : 받은 서버들에 진입 요청 급증을 보내고 합산 통과 속도를 출력.
 measure() {
   ./scripts/load/reset.sh >/dev/null
   local coupon_id; coupon_id=$(BASE_URL="$1" QUANTITY="$QUANTITY" ./scripts/load/part-6/create_big_coupon.sh)
-  printf '쿠폰 %s 생성 (재고 %s). 진입 폭주로 줄을 채운다.\n' "$coupon_id" "$QUANTITY"
+  printf '쿠폰 %s 생성 (재고 %s). 진입 요청 급증으로 줄을 채운다.\n' "$coupon_id" "$QUANTITY"
 
   for server in "$@"; do curl -fsS -X POST "$server/metrics/traffic/reset" >/dev/null; done
   k6 run -e COUPON_ID="$coupon_id" -e BASES="$(IFS=','; echo "$*")" -e RATE="$RATE" -e DURATION="$DURATION" \

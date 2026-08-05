@@ -1,7 +1,7 @@
-// 대기실 등록 폭주. 줄을 채워 드레인이 매초 통과 속도만큼 일하게 만든다 (측정은 run.sh 가 admitted 로).
+// 대기실 진입 요청 급증. 줄을 채워 드레인이 매초 통과 속도만큼 일하게 만든다 (측정은 run.sh 가 admitted 로).
 // BASES 에 콤마로 여러 인스턴스를 주면 VU 가 라운드로빈으로 나눠 진입한다.
 import http from 'k6/http';
-import { Trend } from 'k6/metrics';
+import { Counter, Trend } from 'k6/metrics';
 
 const COUPON_ID = __ENV.COUPON_ID || '1';
 const BASES = (__ENV.BASES || 'http://localhost:8080').split(',');
@@ -9,6 +9,7 @@ const RATE = Number(__ENV.RATE || 500);
 const DURATION = __ENV.DURATION || '20s';
 
 const enterLatency = new Trend('enter_latency', true);
+const failures = new Counter('waiting_room_enter_failures');
 
 export const options = {
   scenarios: {
@@ -17,6 +18,9 @@ export const options = {
       rate: RATE, timeUnit: '1s', duration: DURATION,
       preAllocatedVUs: Math.min(RATE, 2000), maxVUs: 4000,
     },
+  },
+  thresholds: {
+    waiting_room_enter_failures: ['count==0'],
   },
 };
 
@@ -27,4 +31,5 @@ export default function () {
     headers: { 'X-User-Id': userId },
   });
   enterLatency.add(res.timings.duration);
+  if (res.status !== 200) failures.add(1);
 }
