@@ -1,4 +1,4 @@
-// 매진 전 폭주 베이스라인. 발급 엔드포인트로 직접 쏟아붓는다.
+// 매진 전 트래픽 급증 베이스라인. 발급 엔드포인트로 직접 쏟아붓는다.
 // userId 를 매 요청 고유하게 만들어 전부 발급 경로를 타게 한다 (서버 도착은 run.sh 가 잰다).
 import http from 'k6/http';
 import { Trend, Counter } from 'k6/metrics';
