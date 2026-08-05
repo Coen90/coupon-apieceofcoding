@@ -31,7 +31,7 @@ part-2/   동시성: over_issuance.js, run.sh, verify.sh
 part-3/   큐 디커플링: issue_burst.js, verify_burst.sh, run.sh, kafka_lag.sh, kafka_dlt_peek.sh
 part-4/   캐시+매진 상태: coupon_burst.js, post_sellout_refresh.js, sell_out.sh, run.sh
 part-5/   DLT 재처리+대사: force_dlt.sh, force_db_only.sh, drift_report.sh, run.sh
-part-6/   트래픽 제어 베이스라인: create_big_coupon.sh, issue_flood.js, run.sh
+part-6/   트래픽 제어: 베이스라인, 대기실, 실제 사용자 여정, Gateway Rate Limit
 ```
 
 ## 실행
@@ -51,8 +51,11 @@ scripts/load/part-3/kafka_dlt_peek.sh   # DLT 확인 (3-2c)
 ./scripts/load/part-5/run.sh
 
 # part-6 (트래픽 제어)
-./scripts/load/part-6/run.sh   # 6-0 part-6-0-load-test: 매진 전 발급 폭주 베이스라인
-./scripts/load/part-6/run.sh   # 6-1 part-6-1-waiting-room: Redis 대기실 통과 속도
+./scripts/load/part-6/run.sh                     # 6-0: 매진 전 발급 트래픽 급증 베이스라인
+./scripts/load/part-6/run.sh single              # 6-1: 서버 1대의 Redis 대기실 통과 속도
+./scripts/load/part-6/run.sh scale               # 6-1: 서버 2대에서도 전역 통과 속도 유지
+./scripts/load/part-6/verify.sh                  # 6-1: FIFO, 폴링 시 순번 유지, 입장권 확인
+./scripts/load/part-6/waiting_room_journey.sh    # 6-2: 진입, 폴링, 통과 후 발급
 ./scripts/load/part-6/gateway_rate_limit.sh  # 6-2 part-6-2-edge-rate-limit: Gateway Rate Limit
 ```
 part-5 는 두 등식 `total = 발급누적 + Redis재고 = Redis사용자 + Redis재고` 의 잔차로 불일치를 잰다. `force_dlt` 는 DB 측(알람 대상), `force_db_only` 는 목록 측(자동 보정 대상)을 깬다.
@@ -61,5 +64,4 @@ DLT consumer는 실패한 메시지 원문과 Kafka 오류 메시지를 `issuanc
 
 최근 발급 기록은 1분마다 대사한다. `/admin/reconcile/run`은 Redis 최근 발급 기록에 의존하지 않고 전체 쿠폰을 즉시 대사한다.
 
-part-6 는 매진 전 폭주 베이스라인이다. 기본값은 `RATE=1000`, `DURATION=20s`, `QUANTITY=1000000` 이며, `/metrics/traffic/reset` 으로 카운터를 초기화한 뒤 발급 엔드포인트 도착량을 `/metrics/traffic` 에서 읽어 초당 도착 속도를 출력한다.
-part-6 은 브랜치별 대표 스크립트 한 줄로 실행한다. 6-0 은 대기실 없는 발급 폭주 베이스라인, 6-1 은 Redis 대기실 통과 속도, 6-2 는 게이트웨이 Rate Limit 으로 어뷰저를 앞단에서 자르는 흐름을 확인한다.
+6-0 은 대기실 없는 발급 트래픽 급증 베이스라인, 6-1 은 Redis 대기실의 FIFO와 전역 통과 속도를 확인한다. 6-2 는 실제 사용자가 한 번 진입하고 상태를 폴링한 뒤 발급하는 흐름과, Gateway가 사용자 단위로 어뷰저를 제한하는 흐름을 검증한다.
