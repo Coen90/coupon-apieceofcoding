@@ -13,12 +13,13 @@ class WaitingRoomRedisRepository(
 
     // (통과 여부, 1-based 순번). 통과면 0.
     fun enter(couponId: Long, userId: Long): Pair<Boolean, Long> {
+        // 먼저 활성화해야 중간 장애가 나도 대기열이 배출 대상에서 빠지지 않는다.
+        redisTemplate.opsForSet().add(ROOMS_KEY, couponId.toString())
         val result = redisTemplate.runForStrings(
             enterScript,
             listOf(queueKey(couponId), passKey(couponId, userId)),
             userId,
         )
-        redisTemplate.opsForSet().add(ROOMS_KEY, couponId.toString())
         return (result[0] == "1") to result[1].toLong()
     }
 

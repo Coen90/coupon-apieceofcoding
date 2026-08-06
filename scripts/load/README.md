@@ -50,7 +50,7 @@ scripts/load/part-3/kafka_dlt_peek.sh   # DLT 확인 (3-2c)
 # part-5: 현재 브랜치의 5-0, 5-1, 5-2 시나리오를 자동 선택
 ./scripts/load/part-5/run.sh
 
-# part-6: 현재 브랜치를 감지해 6-0 baseline, 6-1 single, 6-2 journey 실행
+# part-6: 현재 브랜치를 감지해 6-0 baseline, 6-1 single, 6-2 gateway 실행
 ./scripts/load/part-6/run.sh
 
 # 시나리오 직접 선택

@@ -26,7 +26,7 @@ done
 [[ "$ready" == "true" ]] || { echo "게이트웨이 준비 실패" >&2; exit 1; }
 
 ./scripts/load/reset.sh >/dev/null
-coupon_id=$(BASE_URL="$APPLICATION_BASE_URL" QUANTITY="$QUANTITY" ./scripts/load/part-6/create_big_coupon.sh)
+coupon_id=$(BASE_URL="$APPLICATION_BASE_URL" QUANTITY="$QUANTITY" ./scripts/load/create_coupon.sh)
 printf '쿠폰 %s 생성. 사용자 %s명이 진입 후 상태를 폴링하고 발급한다.\n' "$coupon_id" "$USERS"
 
 k6 run \

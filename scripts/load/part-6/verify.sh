@@ -25,7 +25,7 @@ wait_until_admitted() {
 }
 printf '\n\033[1;36m===== part-6-1 Redis 대기실 검증 =====\033[0m\n'
 ./scripts/load/reset.sh >/dev/null
-coupon=$(BASE_URL="$BASE" ./scripts/load/part-6/create_big_coupon.sh)
+coupon=$(BASE_URL="$BASE" QUANTITY=1000000 ./scripts/load/create_coupon.sh)
 printf '쿠폰 %s 생성\n' "$coupon"
 
 printf '\n[순서 보장] 먼저 온 사람이 앞 순번\n'

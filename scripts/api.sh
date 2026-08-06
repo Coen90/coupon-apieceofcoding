@@ -23,6 +23,7 @@ for _ in $(seq 1 10); do
   [ -n "$ISSUANCE" ] && break
   sleep 1
 done
+[ -n "$ISSUANCE" ] || { echo "발급 내역이 저장되지 않았습니다" >&2; exit 1; }
 
 curl -sS -X POST "$BASE/api/issuances/$ISSUANCE/use" -H 'X-User-Id: 1'
 curl -sS "$BASE/api/users/me/issuances" -H 'X-User-Id: 1'
