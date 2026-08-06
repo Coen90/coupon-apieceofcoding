@@ -31,7 +31,7 @@ class RedisWaitingRoom(
 
     // 배출 타이머. ShedLock 으로 매초 한 대만 돈다 (안 그러면 통과 속도가 서버 수만큼 곱해진다).
     @Scheduled(fixedRate = 1000)
-    @SchedulerLock(name = "waiting-room-drain", lockAtLeastFor = "PT0.95S", lockAtMostFor = "PT2S")
+    @SchedulerLock(name = "waiting-room-drain", lockAtLeastFor = "PT0.95S")
     fun drain() {
         waitingRoomRedisRepository.activeRooms().forEach { couponId ->
             waitingRoomRedisRepository.drain(

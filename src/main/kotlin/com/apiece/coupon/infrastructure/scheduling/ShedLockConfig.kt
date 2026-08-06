@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.data.redis.connection.RedisConnectionFactory
 
 @Configuration
-@EnableSchedulerLock(defaultLockAtMostFor = "PT2S")
+@EnableSchedulerLock(defaultLockAtMostFor = "PT10S")
 class ShedLockConfig {
 
     @Bean
