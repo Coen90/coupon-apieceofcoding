@@ -90,7 +90,7 @@ services:
     <<: *coupon-service
     profiles: ["scale"]
     ports:
-      - "8081:8080"
+      - "127.0.0.1:8081:8080"
 
 volumes:
   mysql-data:
