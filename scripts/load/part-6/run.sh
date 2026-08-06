@@ -47,6 +47,7 @@ waiting_room() {
   local seconds="${DURATION%s}"
   (( RATE > admit_per_second )) || { echo "RATE는 통과 속도(${admit_per_second}/s)보다 커야 한다" >&2; exit 1; }
   (( seconds * 1000 < pass_ttl_ms )) || { echo "DURATION은 입장권 TTL보다 짧아야 한다" >&2; exit 1; }
+  wait_ready "$BASE"
 
   local bases="$BASE"
   local servers=1
