@@ -5,6 +5,7 @@ import com.apiece.coupon.infrastructure.cache.WaitingRoomRedisRepository
 import com.apiece.coupon.support.WaitingRoomNotEnteredException
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -14,12 +15,10 @@ import kotlin.test.assertTrue
 class RedisWaitingRoomTest {
 
     private val repository = mockk<WaitingRoomRedisRepository>()
-    private val metrics = TrafficMetrics()
 
     private fun room() = RedisWaitingRoom(
         repository,
         WaitingRoomProperties(admitPerSecond = 100, passTtlMs = 30_000),
-        metrics,
     )
 
     @Test
@@ -53,14 +52,15 @@ class RedisWaitingRoomTest {
     }
 
     @Test
-    fun `드레인은 활성 대기실마다 통과 인원만큼 메트릭을 올린다`() {
+    fun `드레인은 활성 대기실마다 통과시킨다`() {
         every { repository.activeRooms() } returns listOf(1L, 2L)
         every { repository.drain(1L, 100, 30_000L) } returns 100
         every { repository.drain(2L, 100, 30_000L) } returns 40
 
         room().drain()
 
-        assertEquals(140, metrics.snapshot().admitted)
+        verify { repository.drain(1L, 100, 30_000L) }
+        verify { repository.drain(2L, 100, 30_000L) }
     }
 
     @Test

@@ -11,12 +11,12 @@ docker compose up -d
 
 ## 브랜치 전환 시
 
-브랜치마다 서비스 코드가 다르다. 전환하면 이미지를 새로 굽고 앱/게이트웨이 컨테이너만 교체한다 (mysql/redis/kafka 는 유지).
+브랜치마다 서비스 코드가 다르다. 전환하면 이미지를 새로 굽고 컨테이너만 교체한다 (mysql/redis/kafka 는 유지).
 
 ```bash
 git checkout <branch>
-./gradlew jibDockerBuild  # coupon-service + coupon-gateway
-docker compose up -d --force-recreate coupon-service gateway
+./gradlew jibDockerBuild
+docker compose up -d --force-recreate coupon-service
 ```
 
 DLT 상태 이름을 바꾼 p5-1 이상을 기존 DB 볼륨에서 처음 실행할 때는 학습용 데이터이므로 한 번만 `docker compose down -v` 후 다시 올린다.
@@ -31,7 +31,7 @@ part-2/   동시성: over_issuance.js, run.sh, verify.sh
 part-3/   큐 디커플링: issue_burst.js, verify_burst.sh, run.sh, kafka_lag.sh, kafka_dlt_peek.sh
 part-4/   캐시+매진 상태: coupon_burst.js, post_sellout_refresh.js, sell_out.sh, run.sh
 part-5/   DLT 재처리+대사: force_dlt.sh, force_db_only.sh, drift_report.sh, run.sh
-part-6/   트래픽 제어: 대기실, 실제 사용자 여정, Gateway Rate Limit
+part-6/   트래픽 제어: 6-0 베이스라인, 6-1 대기실, 6-2 Gateway 시나리오 전체
 ```
 
 ## 실행
@@ -50,12 +50,16 @@ scripts/load/part-3/kafka_dlt_peek.sh   # DLT 확인 (3-2c)
 # part-5: 현재 브랜치의 5-0, 5-1, 5-2 시나리오를 자동 선택
 ./scripts/load/part-5/run.sh
 
-# part-6 (트래픽 제어)
-./scripts/load/part-6/run.sh single              # 6-1: 서버 1대의 Redis 대기실 통과 속도
-./scripts/load/part-6/run.sh scale               # 6-1: 서버 2대에서도 전역 통과 속도 유지
-./scripts/load/part-6/verify.sh                  # 6-1: FIFO, 폴링 시 순번 유지, 입장권 확인
-./scripts/load/part-6/waiting_room_journey.sh    # 6-2: 진입, 폴링, 통과 후 발급
-./scripts/load/part-6/gateway_rate_limit.sh  # 6-2 part-6-2-edge-rate-limit: Gateway Rate Limit
+# part-6: 현재 브랜치를 감지해 6-0 baseline, 6-1 single, 6-2 journey 실행
+./scripts/load/part-6/run.sh
+
+# 시나리오 직접 선택
+./scripts/load/part-6/run.sh baseline
+./scripts/load/part-6/run.sh single
+./scripts/load/part-6/run.sh scale
+./scripts/load/part-6/run.sh verify
+./scripts/load/part-6/run.sh journey
+./scripts/load/part-6/run.sh gateway
 ```
 part-5 는 두 등식 `total = 발급누적 + Redis재고 = Redis사용자 + Redis재고` 의 잔차로 불일치를 잰다. `force_dlt` 는 DB 측(알람 대상), `force_db_only` 는 목록 측(자동 보정 대상)을 깬다.
 
@@ -63,4 +67,4 @@ DLT consumer는 실패한 메시지 원문과 Kafka 오류 메시지를 `issuanc
 
 최근 발급 기록은 1분마다 대사한다. `/admin/reconcile/run`은 Redis 최근 발급 기록에 의존하지 않고 전체 쿠폰을 즉시 대사한다.
 
-6-0 은 대기실 없는 발급 트래픽 급증 베이스라인, 6-1 은 Redis 대기실의 FIFO와 전역 통과 속도를 확인한다. 6-2 는 실제 사용자가 한 번 진입하고 상태를 폴링한 뒤 발급하는 흐름과, Gateway가 사용자 단위로 어뷰저를 제한하는 흐름을 검증한다.
+part-6 스크립트는 6-0에 모두 추가한다. 이후 브랜치는 같은 스크립트를 사용하고 애플리케이션 코드만 단계별로 추가한다.

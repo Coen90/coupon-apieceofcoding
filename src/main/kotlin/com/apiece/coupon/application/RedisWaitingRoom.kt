@@ -11,7 +11,6 @@ import org.springframework.stereotype.Component
 class RedisWaitingRoom(
     private val waitingRoomRedisRepository: WaitingRoomRedisRepository,
     private val waitingRoomProperties: WaitingRoomProperties,
-    private val trafficMetrics: TrafficMetrics,
 ) : WaitingRoom {
 
     override fun enter(couponId: Long, userId: Long): Admission {
@@ -35,12 +34,11 @@ class RedisWaitingRoom(
     @SchedulerLock(name = "waiting-room-drain", lockAtLeastFor = "PT0.95S", lockAtMostFor = "PT2S")
     fun drain() {
         waitingRoomRedisRepository.activeRooms().forEach { couponId ->
-            val admitted = waitingRoomRedisRepository.drain(
+            waitingRoomRedisRepository.drain(
                 couponId,
                 waitingRoomProperties.admitPerSecond,
                 waitingRoomProperties.passTtlMs,
             )
-            trafficMetrics.addAdmitted(admitted)
         }
     }
 }
