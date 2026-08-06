@@ -31,7 +31,7 @@ part-2/   동시성: over_issuance.js, run.sh, verify.sh
 part-3/   큐 디커플링: issue_burst.js, verify_burst.sh, run.sh, kafka_lag.sh, kafka_dlt_peek.sh
 part-4/   캐시+매진 상태: coupon_burst.js, post_sellout_refresh.js, sell_out.sh, run.sh
 part-5/   DLT 재처리+대사: force_dlt.sh, force_db_only.sh, drift_report.sh, run.sh
-part-6/   Redis 대기실: create_big_coupon.sh, waiting_room_flood.js, run.sh, verify.sh
+part-6/   트래픽 제어: 6-0 베이스라인, 6-1 대기실, 6-2 Gateway 시나리오 전체
 ```
 
 ## 실행
@@ -50,10 +50,16 @@ scripts/load/part-3/kafka_dlt_peek.sh   # DLT 확인 (3-2c)
 # part-5: 현재 브랜치의 5-0, 5-1, 5-2 시나리오를 자동 선택
 ./scripts/load/part-5/run.sh
 
-# part-6 (트래픽 제어)
-./scripts/load/part-6/run.sh single   # 서버 1대의 통과 속도
-./scripts/load/part-6/run.sh scale    # 서버 2대에서도 전역 통과 속도 유지
-./scripts/load/part-6/verify.sh       # FIFO, 순번 유지, 입장권 확인
+# part-6: 현재 브랜치를 감지해 6-0 baseline, 6-1 single, 6-2 journey 실행
+./scripts/load/part-6/run.sh
+
+# 시나리오 직접 선택
+./scripts/load/part-6/run.sh baseline
+./scripts/load/part-6/run.sh single
+./scripts/load/part-6/run.sh scale
+./scripts/load/part-6/run.sh verify
+./scripts/load/part-6/run.sh journey
+./scripts/load/part-6/run.sh gateway
 ```
 part-5 는 두 등식 `total = 발급누적 + Redis재고 = Redis사용자 + Redis재고` 의 잔차로 불일치를 잰다. `force_dlt` 는 DB 측(알람 대상), `force_db_only` 는 목록 측(자동 보정 대상)을 깬다.
 
@@ -61,4 +67,4 @@ DLT consumer는 실패한 메시지 원문과 Kafka 오류 메시지를 `issuanc
 
 최근 발급 기록은 1분마다 대사한다. `/admin/reconcile/run`은 Redis 최근 발급 기록에 의존하지 않고 전체 쿠폰을 즉시 대사한다.
 
-6-1 은 Redis 대기실의 FIFO와 ShedLock을 이용한 전역 통과 속도를 검증한다.
+part-6 스크립트는 6-0에 모두 추가한다. 이후 브랜치는 같은 스크립트를 사용하고 애플리케이션 코드만 단계별로 추가한다.
