@@ -40,6 +40,7 @@ export const options = {
     },
   },
   thresholds: {
+    dropped_iterations: ['count==0'],
     normal_blocked: ['count==0'],  // 정상 사용자는 한 번도 안 막혀야
     abuser_blocked: ['count>0'],   // 어뷰저는 Gateway에서 컷돼야
     abuser_passed: [`count>=${lower(expectedAbuserPassed)}`, `count<=${upper(expectedAbuserPassed)}`],
