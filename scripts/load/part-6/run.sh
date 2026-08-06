@@ -14,6 +14,7 @@ create_coupon() {
 
 baseline() {
   printf '\n\033[1;36m===== part-6-0: 대기실 없는 발급 트래픽 급증 =====\033[0m\n'
+  wait_ready "$BASE"
   ./scripts/load/reset.sh >/dev/null
   local coupon_id; coupon_id=$(create_coupon "$BASE")
   k6 run -e COUPON_ID="$coupon_id" -e BASE_URL="$BASE" -e RATE="$RATE" -e DURATION="$DURATION" \
