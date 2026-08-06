@@ -12,9 +12,7 @@ const POLL_JITTER_SECONDS = Number(__ENV.POLL_JITTER_SECONDS || 0.25);
 const MAX_WAIT_SECONDS = Number(__ENV.MAX_WAIT_SECONDS || 30);
 const USER_ID_BASE = Number(__ENV.USER_ID_BASE || 1_000_000_000);
 
-const enteredUsers = new Counter('journey_entered_users');
 const statusPolls = new Counter('journey_status_polls');
-const admittedUsers = new Counter('journey_admitted_users');
 const issuedUsers = new Counter('journey_issued_users');
 const failures = new Counter('journey_failures');
 const gatewayBlocked = new Counter('journey_gateway_blocked');
@@ -67,8 +65,6 @@ export default function () {
     fail('대기실 진입 실패', userId, enterResponse.status);
     return;
   }
-  enteredUsers.add(1);
-
   let admitted = parseAdmission(enterResponse, userId);
   if (admitted === null) return;
 
@@ -103,7 +99,6 @@ export default function () {
     return;
   }
 
-  admittedUsers.add(1);
   waitingTime.add(Date.now() - startedAt);
 
   const issueResponse = http.post(`${BASE_URL}/api/coupons/${COUPON_ID}/issue`, null, {

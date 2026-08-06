@@ -90,8 +90,6 @@ services:
   coupon-service-2:
     <<: *coupon-service
     profiles: ["scale"]
-    environment:
-      <<: *coupon-env
     ports:
       - "127.0.0.1:8081:8080"
 

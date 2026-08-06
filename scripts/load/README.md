@@ -31,7 +31,7 @@ part-2/   동시성: over_issuance.js, run.sh, verify.sh
 part-3/   큐 디커플링: issue_burst.js, verify_burst.sh, run.sh, kafka_lag.sh, kafka_dlt_peek.sh
 part-4/   캐시+매진 상태: coupon_burst.js, post_sellout_refresh.js, sell_out.sh, run.sh
 part-5/   DLT 재처리+대사: force_dlt.sh, force_db_only.sh, drift_report.sh, run.sh
-part-6/   트래픽 제어: 베이스라인, 대기실, 실제 사용자 여정, Gateway Rate Limit
+part-6/   트래픽 제어: 대기실, 실제 사용자 여정, Gateway Rate Limit
 ```
 
 ## 실행
@@ -51,7 +51,6 @@ scripts/load/part-3/kafka_dlt_peek.sh   # DLT 확인 (3-2c)
 ./scripts/load/part-5/run.sh
 
 # part-6 (트래픽 제어)
-./scripts/load/part-6/run.sh                     # 6-0: 매진 전 발급 트래픽 급증 베이스라인
 ./scripts/load/part-6/run.sh single              # 6-1: 서버 1대의 Redis 대기실 통과 속도
 ./scripts/load/part-6/run.sh scale               # 6-1: 서버 2대에서도 전역 통과 속도 유지
 ./scripts/load/part-6/verify.sh                  # 6-1: FIFO, 폴링 시 순번 유지, 입장권 확인

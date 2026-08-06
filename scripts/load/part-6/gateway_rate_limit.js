@@ -5,6 +5,19 @@ import { Counter } from 'k6/metrics';
 const COUPON_ID = __ENV.COUPON_ID || '1';
 const BASE = __ENV.BASE_URL || 'http://localhost:8090';
 const DURATION = __ENV.DURATION || '10s';
+const ABUSER_RATE = Number(__ENV.ABUSER_RATE || 200);
+const NORMAL_RATE = Number(__ENV.NORMAL_RATE || 20);
+const REPLENISH_RATE = Number(__ENV.REPLENISH_RATE || 5);
+const BURST_CAPACITY = Number(__ENV.BURST_CAPACITY || 10);
+const TOLERANCE_PERCENT = Number(__ENV.TOLERANCE_PERCENT || 20);
+const durationMatch = DURATION.match(/^([1-9][0-9]*)s$/);
+if (!durationMatch) throw new Error('DURATION은 10s처럼 초 단위로 입력해야 한다');
+
+const durationSeconds = Number(durationMatch[1]);
+const expectedAbuserPassed = BURST_CAPACITY + REPLENISH_RATE * durationSeconds;
+const expectedNormalPassed = NORMAL_RATE * durationSeconds;
+const lower = (value) => Math.floor(value * (100 - TOLERANCE_PERCENT) / 100);
+const upper = (value) => Math.ceil(value * (100 + TOLERANCE_PERCENT) / 100);
 
 const abuserPassed = new Counter('abuser_passed');
 const abuserBlocked = new Counter('abuser_blocked');
@@ -17,18 +30,20 @@ export const options = {
   scenarios: {
     abuser: {
       executor: 'constant-arrival-rate', exec: 'abuser',
-      rate: Number(__ENV.ABUSER_RATE || 200), timeUnit: '1s', duration: DURATION,
+      rate: ABUSER_RATE, timeUnit: '1s', duration: DURATION,
       preAllocatedVUs: 200, maxVUs: 400,
     },
     normal: {
       executor: 'constant-arrival-rate', exec: 'normal',
-      rate: Number(__ENV.NORMAL_RATE || 20), timeUnit: '1s', duration: DURATION,
+      rate: NORMAL_RATE, timeUnit: '1s', duration: DURATION,
       preAllocatedVUs: 50, maxVUs: 100,
     },
   },
   thresholds: {
     normal_blocked: ['count==0'],  // 정상 사용자는 한 번도 안 막혀야
     abuser_blocked: ['count>0'],   // 어뷰저는 Gateway에서 컷돼야
+    abuser_passed: [`count>=${lower(expectedAbuserPassed)}`, `count<=${upper(expectedAbuserPassed)}`],
+    normal_passed: [`count>=${lower(expectedNormalPassed)}`],
     abuser_failed: ['count==0'],
     normal_failed: ['count==0'],
   },
