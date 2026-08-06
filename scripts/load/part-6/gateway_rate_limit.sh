@@ -29,7 +29,7 @@ done
 [[ "$ready" == "true" ]] || { echo "게이트웨이 준비 실패" >&2; exit 1; }
 
 ./scripts/load/reset.sh >/dev/null
-coupon_id=$(BASE_URL="$APP" ./scripts/load/part-6/create_big_coupon.sh)   # 앱에 직접 생성
+coupon_id=$(BASE_URL="$APP" QUANTITY=1000000 ./scripts/load/create_coupon.sh)   # 앱에 직접 생성
 printf '쿠폰 %s 생성. 어뷰저(한 id)와 정상(매번 다른 id)을 게이트웨이로 동시 전송.\n' "$coupon_id"
 
 k6 run -e COUPON_ID="$coupon_id" -e BASE_URL="$GATEWAY" -e DURATION="$DURATION" \

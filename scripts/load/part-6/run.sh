@@ -9,7 +9,7 @@ DURATION="${DURATION:-20s}"
 QUANTITY="${QUANTITY:-1000000}"
 
 create_coupon() {
-  BASE_URL="$1" QUANTITY="$QUANTITY" ./scripts/load/part-6/create_big_coupon.sh
+  BASE_URL="$1" QUANTITY="$QUANTITY" ./scripts/load/create_coupon.sh
 }
 
 baseline() {
@@ -81,7 +81,7 @@ waiting_room() {
 
 source_stage() {
   if [[ -f gateway/src/main/kotlin/com/apiece/gateway/GatewayApplication.kt ]]; then
-    printf 'journey'
+    printf 'gateway'
   elif [[ -f src/main/kotlin/com/apiece/coupon/application/RedisWaitingRoom.kt ]]; then
     printf 'single'
   else
