@@ -7,10 +7,18 @@ cd "$(dirname "$0")/../../.."
 
 RATE="${RATE:-500}"
 DURATION="${DURATION:-20s}"
-SECS="${DURATION%s}"
+EXPECTED_ADMIT_PER_SECOND="${COUPON_WAITING_ROOM_ADMIT_PER_SECOND:-100}"
+TOLERANCE_PERCENT="${TOLERANCE_PERCENT:-30}"
 QUANTITY="${QUANTITY:-1000000}"
 PRIMARY_BASE="${BASE_URL:-http://localhost:8080}"
 SECONDARY_BASE="${SECONDARY_BASE_URL:-http://localhost:8081}"
+
+[[ "$DURATION" =~ ^[1-9][0-9]*s$ ]] || { echo "DURATION은 20s처럼 초 단위로 입력해야 한다" >&2; exit 1; }
+SECS="${DURATION%s}"
+(( RATE > EXPECTED_ADMIT_PER_SECOND )) || {
+  echo "RATE는 통과 속도(${EXPECTED_ADMIT_PER_SECOND}/s)보다 커야 대기열이 유지된다" >&2
+  exit 1
+}
 
 admitted_at() { curl -fsS "$1/metrics/traffic" | jq -r '.admitted'; }
 
@@ -35,7 +43,18 @@ measure() {
     printf '  %s 통과 인원: %s\n' "$server" "$n"
     total=$(( total + n ))
   done
-  printf '\033[1;33m통과 속도: %s건 / %ss = 약 %s건/s (서버 %d대)\033[0m\n' "$total" "$SECS" "$(( total / SECS ))" "$#"
+  local measured_rate=$(( total / SECS ))
+  local lower_bound=$(( EXPECTED_ADMIT_PER_SECOND * (100 - TOLERANCE_PERCENT) / 100 ))
+  local upper_bound=$(( EXPECTED_ADMIT_PER_SECOND * (100 + TOLERANCE_PERCENT) / 100 ))
+  printf '\033[1;33m통과 속도: %s건 / %ss = 약 %s건/s (서버 %d대)\033[0m\n' "$total" "$SECS" "$measured_rate" "$#"
+
+  if (( measured_rate < lower_bound || measured_rate > upper_bound )); then
+    printf '\033[1;31m  ✗ 실패\033[0m 기대 %s건/s, 허용 범위 %s~%s건/s\n' \
+      "$EXPECTED_ADMIT_PER_SECOND" "$lower_bound" "$upper_bound"
+    return 1
+  fi
+  printf '\033[1;32m  ✓ 통과\033[0m 기대 %s건/s, 허용 범위 %s~%s건/s\n' \
+    "$EXPECTED_ADMIT_PER_SECOND" "$lower_bound" "$upper_bound"
 }
 
 case "${1:-single}" in
@@ -50,8 +69,7 @@ case "${1:-single}" in
     docker compose --profile scale up -d coupon-service-2 >/dev/null
     wait_ready "$SECONDARY_BASE"
     measure "$PRIMARY_BASE" "$SECONDARY_BASE"
-    printf '\033[0;37mShedLock 이 매초 한 대만 드레인 → 2대로 늘려도 통과 속도가 유지된다\n'
-    printf '(서버마다 로컬 대기열과 타이머가 있다면 2배로 늘어날 지점이다).\033[0m\n'
+    printf '\033[0;37mShedLock 이 매초 한 대만 드레인 → 2대로 늘려도 통과 속도가 유지된다.\033[0m\n'
     ;;
   *)
     echo "사용법: run.sh [single|scale]"; exit 1 ;;

@@ -88,8 +88,6 @@ services:
   coupon-service-2:
     <<: *coupon-service
     profiles: ["scale"]
-    environment:
-      <<: *coupon-env
     ports:
       - "8081:8080"
 
