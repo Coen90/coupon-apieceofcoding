@@ -20,6 +20,7 @@ export const options = {
   },
   thresholds: {
     issue_failures: ['count==0'],
+    dropped_iterations: ['count==0'],
   },
 };
 

@@ -4,7 +4,6 @@ import com.apiece.coupon.api.dto.CouponResponse
 import com.apiece.coupon.api.dto.CreateCouponRequest
 import com.apiece.coupon.api.dto.IssuanceResponse
 import com.apiece.coupon.application.CouponService
-import com.apiece.coupon.application.TrafficMetrics
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PathVariable
@@ -18,7 +17,6 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/api/coupons")
 class CouponController(
     private val couponService: CouponService,
-    private val trafficMetrics: TrafficMetrics,
 ) {
 
     @PostMapping
@@ -32,7 +30,6 @@ class CouponController(
         @PathVariable couponId: Long,
         @RequestHeader("X-User-Id") userId: Long,
     ): IssuanceResponse {
-        trafficMetrics.incrementIssueArrival()
         val issuance = couponService.issue(couponId, userId)
         return IssuanceResponse.from(issuance)
     }
