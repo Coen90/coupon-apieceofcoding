@@ -92,7 +92,6 @@ services:
     profiles: ["scale"]
     ports:
       - "127.0.0.1:8081:8080"
-
   # API Gateway. 어뷰저를 대기실 진입과 발급 앞에서 사용자별로 컷. 이미지 빌드: ./gradlew jibDockerBuild
   gateway:
     image: coupon-gateway:latest
@@ -110,7 +109,6 @@ services:
       RATE_LIMIT_BURST: ${RATE_LIMIT_BURST:-10}
     ports:
       - "127.0.0.1:8090:8080"
-
 volumes:
   mysql-data:
   redis-data:
