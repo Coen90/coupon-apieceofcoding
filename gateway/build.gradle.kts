@@ -22,7 +22,7 @@ repositories {
 dependencyManagement {
     imports {
         // BOM 의 Kotlin 버전을 플러그인 버전에 맞춘다. 안 맞추면 증분 컴파일이 깨진다.
-        mavenBom("org.springframework.boot:spring-boot-dependencies:4.0.6") {
+        mavenBom("org.springframework.boot:spring-boot-dependencies:4.0.7") {
             bomProperty("kotlin.version", "2.3.21")
         }
         mavenBom("org.springframework.cloud:spring-cloud-dependencies:2025.1.2")

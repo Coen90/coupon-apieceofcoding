@@ -25,3 +25,4 @@ spring:
                     # Token Bucket: 초당 replenishRate 채움, 순간 최대 burstCapacity.
                     redis-rate-limiter.replenishRate: ${RATE_LIMIT_REPLENISH:5}
                     redis-rate-limiter.burstCapacity: ${RATE_LIMIT_BURST:10}
+                    redis-rate-limiter.requestedTokens: 1
