@@ -5,7 +5,7 @@ import { sleep } from 'k6';
 import { Counter, Trend } from 'k6/metrics';
 
 const COUPON_ID = __ENV.COUPON_ID || '1';
-const BASE_URL = __ENV.BASE_URL || 'http://localhost:8090';
+const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
 const USERS = Number(__ENV.USERS || 200);
 const POLL_INTERVAL_SECONDS = Number(__ENV.POLL_INTERVAL_SECONDS || 1);
 const POLL_JITTER_SECONDS = Number(__ENV.POLL_JITTER_SECONDS || 0.25);
@@ -15,7 +15,6 @@ const USER_ID_BASE = Number(__ENV.USER_ID_BASE || 1_000_000_000);
 const statusPolls = new Counter('journey_status_polls');
 const issuedUsers = new Counter('journey_issued_users');
 const failures = new Counter('journey_failures');
-const gatewayBlocked = new Counter('journey_gateway_blocked');
 const pollLatency = new Trend('journey_poll_latency', true);
 const pollsPerUser = new Trend('journey_polls_per_user');
 const waitingTime = new Trend('journey_waiting_time', true);
@@ -31,7 +30,6 @@ export const options = {
   },
   thresholds: {
     journey_failures: ['count==0'],
-    journey_gateway_blocked: ['count==0'],
     journey_issued_users: [`count==${USERS}`],
   },
 };
@@ -61,7 +59,6 @@ export default function () {
     tags: { name: 'waiting_room_enter' },
   });
   if (enterResponse.status !== 200) {
-    if (enterResponse.status === 429) gatewayBlocked.add(1);
     fail('대기실 진입 실패', userId, enterResponse.status);
     return;
   }
@@ -80,10 +77,6 @@ export default function () {
     pollCount += 1;
     pollLatency.add(statusResponse.timings.duration);
 
-    if (statusResponse.status === 429) {
-      gatewayBlocked.add(1);
-      continue;
-    }
     if (statusResponse.status !== 200) {
       fail('상태 조회 실패', userId, statusResponse.status);
       return;
@@ -106,7 +99,6 @@ export default function () {
     tags: { name: 'coupon_issue' },
   });
   if (issueResponse.status !== 200) {
-    if (issueResponse.status === 429) gatewayBlocked.add(1);
     fail('쿠폰 발급 실패', userId, issueResponse.status);
     return;
   }
