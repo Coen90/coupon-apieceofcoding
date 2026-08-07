@@ -5,7 +5,7 @@ import { Counter } from 'k6/metrics';
 
 const COUPON_ID = __ENV.COUPON_ID || '1';
 const BASES = (__ENV.BASES || 'http://localhost:8080').split(',');
-const RATE = Number(__ENV.RATE || 500);
+const RATE = Number(__ENV.RATE || 1000);
 const DURATION = __ENV.DURATION || '20s';
 
 const failures = new Counter('waiting_room_enter_failures');
