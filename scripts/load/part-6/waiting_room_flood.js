@@ -1,4 +1,4 @@
-// 대기실 진입 요청 급증. 줄을 채워 드레인이 매초 통과 속도만큼 일하게 만든다 (측정은 run.sh 가 admitted 로).
+// 대기실 진입 요청 급증. 줄을 채워 드레인이 매초 통과 속도만큼 일하게 만든다 (run.sh가 Redis 입장권 수로 측정).
 // BASES 에 콤마로 여러 인스턴스를 주면 VU 가 라운드로빈으로 나눠 진입한다.
 import http from 'k6/http';
 import { Counter } from 'k6/metrics';
