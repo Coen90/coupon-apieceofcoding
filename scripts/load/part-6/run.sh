@@ -12,6 +12,12 @@ create_coupon() {
   BASE_URL="$1" QUANTITY="$QUANTITY" ./scripts/load/create_coupon.sh
 }
 
+require_source() {
+  local path="$1"
+  local stage="$2"
+  [[ -f "$path" ]] || { printf '%s 이후에 실행할 수 있다\n' "$stage" >&2; exit 1; }
+}
+
 baseline() {
   printf '\n\033[1;36m===== part-6-0: 대기실 없는 발급 트래픽 급증 =====\033[0m\n'
   wait_ready "$BASE"
@@ -92,9 +98,21 @@ source_stage() {
 MODE="${1:-$(source_stage)}"
 case "$MODE" in
   baseline) baseline ;;
-  single|scale) waiting_room "$MODE" ;;
-  verify) ./scripts/load/part-6/verify.sh ;;
-  journey) ./scripts/load/part-6/waiting_room_journey.sh ;;
-  gateway) ./scripts/load/part-6/gateway_rate_limit.sh ;;
+  single|scale)
+    require_source src/main/kotlin/com/apiece/coupon/application/RedisWaitingRoom.kt part-6-1-waiting-room
+    waiting_room "$MODE"
+    ;;
+  verify)
+    require_source src/main/kotlin/com/apiece/coupon/application/RedisWaitingRoom.kt part-6-1-waiting-room
+    ./scripts/load/part-6/verify.sh
+    ;;
+  journey)
+    require_source src/main/kotlin/com/apiece/coupon/application/RedisWaitingRoom.kt part-6-1-waiting-room
+    ./scripts/load/part-6/waiting_room_journey.sh
+    ;;
+  gateway)
+    require_source gateway/src/main/kotlin/com/apiece/gateway/GatewayApplication.kt part-6-2-edge-rate-limit
+    ./scripts/load/part-6/gateway_rate_limit.sh
+    ;;
   *) echo "사용법: run.sh [baseline|single|scale|verify|journey|gateway]" >&2; exit 1 ;;
 esac

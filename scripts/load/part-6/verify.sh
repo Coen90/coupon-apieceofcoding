@@ -5,6 +5,13 @@ set -euo pipefail
 cd "$(dirname "$0")/../../.."
 
 BASE="${BASE_URL:-http://localhost:8080}"
+QUANTITY="${QUANTITY:-1000000}"
+
+[[ -f src/main/kotlin/com/apiece/coupon/application/RedisWaitingRoom.kt ]] || {
+  echo "verify는 part-6-1-waiting-room 이후에 실행할 수 있다" >&2
+  exit 1
+}
+
 fail=0
 pass()  { printf '\033[1;32m  ✓ 통과\033[0m %s\n' "$1"; }
 ng()    { printf '\033[1;31m  ✗ 실패\033[0m %s\n' "$1"; fail=1; }
@@ -25,7 +32,7 @@ wait_until_admitted() {
 }
 printf '\n\033[1;36m===== part-6-1 Redis 대기실 검증 =====\033[0m\n'
 ./scripts/load/reset.sh >/dev/null
-coupon=$(BASE_URL="$BASE" QUANTITY=1000000 ./scripts/load/create_coupon.sh)
+coupon=$(BASE_URL="$BASE" QUANTITY="$QUANTITY" ./scripts/load/create_coupon.sh)
 printf '쿠폰 %s 생성\n' "$coupon"
 
 printf '\n[순서 보장] 먼저 온 사람이 앞 순번\n'

@@ -54,12 +54,12 @@ scripts/load/part-3/kafka_dlt_peek.sh   # DLT 확인 (3-2c)
 ./scripts/load/part-6/run.sh
 
 # 시나리오 직접 선택
-./scripts/load/part-6/run.sh baseline
-./scripts/load/part-6/run.sh single
-./scripts/load/part-6/run.sh scale
-./scripts/load/part-6/run.sh verify
-./scripts/load/part-6/run.sh journey
-./scripts/load/part-6/run.sh gateway
+./scripts/load/part-6/run.sh baseline  # 6-0 이후
+./scripts/load/part-6/run.sh single    # 6-1 이후
+./scripts/load/part-6/run.sh scale     # 6-1 이후
+./scripts/load/part-6/run.sh verify    # 6-1 이후
+./scripts/load/part-6/run.sh journey   # 6-1 이후, 애플리케이션 직접 호출
+./scripts/load/part-6/run.sh gateway   # 6-2 이후, Gateway 호출
 ```
 part-5 는 두 등식 `total = 발급누적 + Redis재고 = Redis사용자 + Redis재고` 의 잔차로 불일치를 잰다. `force_dlt` 는 DB 측(알람 대상), `force_db_only` 는 목록 측(자동 보정 대상)을 깬다.
 
