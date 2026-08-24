@@ -5,14 +5,14 @@ spring:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/coupon}
     username: ${SPRING_DATASOURCE_USERNAME:coupon}
     password: ${SPRING_DATASOURCE_PASSWORD:coupon}
-    jpa:
-      hibernate:
-        ddl-auto: update
-      open-in-view: false
-      show-sql: true
-    mvc:
-      problemdetails:
-        enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    show-sql: true
+  mvc:
+    problemdetails:
+      enabled: true
 
   logging:
     level:
