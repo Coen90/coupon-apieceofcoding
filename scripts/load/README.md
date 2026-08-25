@@ -3,7 +3,7 @@
 ## 사전 준비
 
 - `brew install k6 jq`
-- `docker compose up -d` 후 서비스가 8080 응답
+- `./gradlew --stop && ./gradlew jibDockerBuild && docker compose up -d` jib 도커 빌드 후 서비스가 8080 응답
 
 ### 브랜치 전환 시
 
@@ -21,3 +21,19 @@ git checkout <branch>
 ```
 
 `run.sh` 는 `reset → create_coupon → k6 → verify` 를 한 번에 실행한다.
+
+### 동기 DB 테스트 결과
+
+![img.png](img.png)
+
+- vUser 5000
+- 쿠폰 초과발급
+- p95 3.68초
+
+### 비관적락 테스트 결과
+
+![img_1.png](img_1.png)
+
+- vUser 5000
+- 쿠폰 초과발급 없음
+- p95 3.65초

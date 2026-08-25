@@ -32,8 +32,10 @@ class CouponService(
 
     @Transactional
     fun issue(couponId: Long, userId: Long): Issuance {
-        val coupon = couponRepository.findById(couponId)
-            .orElseThrow { CouponNotFoundException() }
+//        val coupon = couponRepository.findById(couponId)
+//            .orElseThrow { CouponNotFoundException() }
+        val coupon = couponRepository.findByIdForUpdate(couponId)
+            ?: throw CouponNotFoundException()
 
         val now = LocalDateTime.now()
 
