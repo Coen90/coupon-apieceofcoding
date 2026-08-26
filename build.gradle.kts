@@ -1,4 +1,5 @@
 import jdk.internal.org.commonmark.internal.Bracket.image
+import sun.jvmstat.monitor.MonitoredVmUtil.mainClass
 
 plugins {
 	kotlin("jvm") version "2.3.21"
@@ -24,6 +25,7 @@ repositories {
 
 dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+	implementation("org.springframework.boot:spring-boot-starter-data-redis")
 	implementation("org.springframework.boot:spring-boot-starter-webmvc")
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	implementation("tools.jackson.module:jackson-module-kotlin")

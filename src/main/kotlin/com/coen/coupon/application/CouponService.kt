@@ -17,6 +17,7 @@ import java.time.LocalDateTime
 class CouponService(
     private val couponRepository: CouponRepository,
     private val issuanceRepository: IssuanceRepository,
+    private val couponIssuer: CouponIssuer,
 ) {
 
     @Transactional
@@ -27,15 +28,14 @@ class CouponService(
             validityDays = request.validityDays,
             startsAt = request.startsAt,
         )
+        couponIssuer.initStock(coupon.id!!, coupon.totalQuantity)
         return couponRepository.save(coupon)
     }
 
     @Transactional
     fun issue(couponId: Long, userId: Long): Issuance {
-//        val coupon = couponRepository.findById(couponId)
-//            .orElseThrow { CouponNotFoundException() }
-        val coupon = couponRepository.findByIdForUpdate(couponId)
-            ?: throw CouponNotFoundException()
+        val coupon = couponRepository.findById(couponId)
+            .orElseThrow { CouponNotFoundException() }
 
         val now = LocalDateTime.now()
 
@@ -49,7 +49,8 @@ class CouponService(
             throw AlreadyIssuedException()
         }
 
-        coupon.issuedQuantity++
+        couponIssuer.tryIssue(couponId)
+        couponRepository.incrementIssuedQuantity(couponId)
 
         return issuanceRepository.save(
             Issuance(

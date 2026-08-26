@@ -24,7 +24,7 @@ git checkout <branch>
 
 ### 동기 DB 테스트 결과
 
-![img.png](img.png)
+<img src="img.png" alt="drawing" style="width:1000px;"/>
 
 - vUser 5000
 - 쿠폰 초과발급
@@ -32,8 +32,16 @@ git checkout <branch>
 
 ### 비관적락 테스트 결과
 
-![img_1.png](img_1.png)
+<img src="img_1.png" alt="drawing" style="width:1000px;"/>
 
 - vUser 5000
 - 쿠폰 초과발급 없음
 - p95 3.65초
+
+### 레디스 원자연산 (lua script)
+
+<img src="img_2.png" alt="drawing" style="width:1000px;"/>
+
+- vUser 5000
+- 쿠폰 초과발급 없음
+- p95 2.34초
