@@ -13,7 +13,24 @@ spring:
   mvc:
     problemdetails:
       enabled: true
-
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9094}
+#    ### producer, consumer, listener 관련 설정은 KafkaConfig.kt에서 관리합니다.
+#    producer:
+#      key-serializer: ${SPRING_KAFKA_PRODUCER_KEY_SERIALIZER:org.apache.kafka.commmon.serialization.StringSerializer}
+#      value-serializer: ${SPRING_KAFKA_PRODUCER_VALUE_SERIALIZER:org.springframework.kafka.support.serializer.JacksonJsonSerializer}
+#      acks: "1"
+#    consumer:
+#      group-id: issuance-worker
+#      auto-offset-reset: earliest
+#      key-deserializer: ${SPRING_KAFKA_CONSUMER_KEY_DESERIALIZER:org.apache.kafka.common.serialization.StringDeserializer}
+#      value-deserializer: ${SPRING_KAFKA_CONSUMER_VALUE_DESERIALIZER:org.springframework.kafka.support.serializer.ErrorHandlingDeserializer}
+#      properties:
+#        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+#        spring.json.trusted.packages: "com.coen.coupon.infrastructure.messaging"
+#        spring.json.value.default.type: com.coen.coupon.infrastructure.messaging.IssuanceEvent
+#    listener:
+#      ack-mode: record
   logging:
     level:
       com.coen.coupon: INFO

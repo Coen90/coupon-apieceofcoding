@@ -92,3 +92,12 @@ Linked Blocking Queue를 사용하여 인메모리 큐를 만들었지만, 비�
 - p95 3.45ms
 
 ### Kafka 사용
+
+스프링 이벤트구조를 kafka를 사용하도록 했다.
+
+<img src="img_5.png" alt="drawing" style="width:1000px;"/>
+
+- vUser 5000
+- 쿠폰 초과발급 없음
+- p99 131.66ms
+- p95 41.54ms
