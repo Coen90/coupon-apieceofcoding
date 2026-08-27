@@ -1,5 +1,6 @@
 package com.coen.coupon.application
 
+import com.coen.coupon.support.AlreadyIssuedException
 import com.coen.coupon.support.SoldOutException
 import org.springframework.core.io.ClassPathResource
 import org.springframework.data.redis.core.StringRedisTemplate
@@ -16,15 +17,17 @@ class CouponIssuer(
         Long::class.java,
     )
 
-    fun tryIssue(couponId: Long) {
+    fun tryIssue(couponId: Long, userId: Long) {
         val raw = redisTemplate.execute(
             script,
-            listOf(stockKey(couponId)),
+            listOf(stockKey(couponId), usersKey(couponId)),
+            userId.toString()
         ) ?: error("Lua 스크립트 결과가 null")
 
         when (raw) {
             1L -> Unit
             0L -> throw SoldOutException()
+            -1L -> throw AlreadyIssuedException()
             else -> error("예상치 못한 Lua 결과: $raw")
         }
     }
@@ -34,4 +37,5 @@ class CouponIssuer(
     }
 
     private fun stockKey(couponId: Long) = "coupon:$couponId:stock"
+    private fun usersKey(couponId: Long) = "coupon:$couponId:users"
 }

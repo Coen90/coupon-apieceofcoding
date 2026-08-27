@@ -4,11 +4,10 @@ import com.coen.coupon.api.dto.CreateCouponRequest
 import com.coen.coupon.domain.Coupon
 import com.coen.coupon.domain.CouponRepository
 import com.coen.coupon.domain.Issuance
-import com.coen.coupon.domain.IssuanceRepository
-import com.coen.coupon.support.AlreadyIssuedException
+import com.coen.coupon.infrastructure.messaging.InMemoryIssuanceQueue
+import com.coen.coupon.infrastructure.messaging.IssuanceRequested
 import com.coen.coupon.support.CouponNotFoundException
 import com.coen.coupon.support.NotStartedException
-import com.coen.coupon.support.SoldOutException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -16,20 +15,22 @@ import java.time.LocalDateTime
 @Service
 class CouponService(
     private val couponRepository: CouponRepository,
-    private val issuanceRepository: IssuanceRepository,
     private val couponIssuer: CouponIssuer,
+    private val issuanceQueue: InMemoryIssuanceQueue,
 ) {
 
     @Transactional
     fun createCoupon(request: CreateCouponRequest): Coupon {
-        val coupon = Coupon(
-            name = request.name,
-            totalQuantity = request.totalQuantity,
-            validityDays = request.validityDays,
-            startsAt = request.startsAt,
+        val coupon = couponRepository.save(
+            Coupon(
+                name = request.name,
+                totalQuantity = request.totalQuantity,
+                validityDays = request.validityDays,
+                startsAt = request.startsAt,
+            )
         )
         couponIssuer.initStock(coupon.id!!, coupon.totalQuantity)
-        return couponRepository.save(coupon)
+        return coupon
     }
 
     @Transactional
@@ -42,23 +43,24 @@ class CouponService(
         if (!coupon.isBookingOpen(now)) {
             throw NotStartedException()
         }
-        if (coupon.isSoldOut()) {
-            throw SoldOutException()
-        }
-        if (issuanceRepository.existsByUserIdAndCouponId(userId, couponId)) {
-            throw AlreadyIssuedException()
-        }
 
-        couponIssuer.tryIssue(couponId)
-        couponRepository.incrementIssuedQuantity(couponId)
+        couponIssuer.tryIssue(couponId, userId)
 
-        return issuanceRepository.save(
-            Issuance(
-                userId = userId,
+        val expiresAt = now.plusDays(coupon.validityDays.toLong())
+        issuanceQueue.enqueue(
+            IssuanceRequested(
                 couponId = couponId,
+                userId = userId,
                 issuedAt = now,
-                expiresAt = now.plusDays(coupon.validityDays.toLong()),
+                expiresAt = expiresAt
             )
+        )
+
+        return Issuance(
+            userId = userId,
+            couponId = couponId,
+            issuedAt = now,
+            expiresAt = expiresAt,
         )
     }
 }
