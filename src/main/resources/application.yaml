@@ -31,6 +31,12 @@ spring:
 #        spring.json.value.default.type: com.coen.coupon.infrastructure.messaging.IssuanceEvent
 #    listener:
 #      ack-mode: record
+
+coupon:
+  cache:
+    ttl-ms: ${COUPON_CACHE_TTL_MS:10000}
+    simulated-load-latency-ms: ${COUPON_CACHE_SIMULATED_LOAD_LATENCY_MS:0}
+
   logging:
     level:
       com.coen.coupon: INFO

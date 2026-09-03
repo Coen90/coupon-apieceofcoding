@@ -101,3 +101,10 @@ Linked Blocking Queue를 사용하여 인메모리 큐를 만들었지만, 비�
 - 쿠폰 초과발급 없음
 - p99 131.66ms
 - p95 41.54ms
+
+<img src="img_6.png" alt="drawing" style="width:1000px;"/>
+
+- vUser ?
+- 쿠폰 초과발급 없음
+- p99 8.93ms
+- p95 2.314ms
